@@ -58,7 +58,7 @@ function MyDay() {
 
   async function act(fn: () => PromiseLike<{ error: any }>, msg: string) {
     const { error } = await fn();
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success(msg);
     refresh();
   }
@@ -199,7 +199,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 const HOURS = [0.5, 1, 2, 3, 4];
 
-function TaskForm({ uid, date, onSaved }: { uid?: string; date: string; onSaved: () => void }) {
+function TaskForm({ uid, date, onSaved }: { uid: string | undefined; date: string; onSaved: () => void }) {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [hours, setHours] = useState<number>(1);
@@ -219,7 +219,7 @@ function TaskForm({ uid, date, onSaved }: { uid?: string; date: string; onSaved:
       status,
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Task added");
     setTitle("");
     setDesc("");
