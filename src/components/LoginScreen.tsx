@@ -30,7 +30,7 @@ export function LoginScreen() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isCompanyEmail(email)) return toast.error("Use your @xoto.ae company email");
+    if (!isCompanyEmail(email)) { toast.error("Use your @xoto.ae company email"); return; }
     setBusy(true);
     try {
       if (needsSetup) await setup({ data: { email, password, full_name: name } });
