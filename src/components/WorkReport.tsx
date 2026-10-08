@@ -1,0 +1,211 @@
+import { Fragment, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, Download } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { breakMinutes, fmtDuration, fmtTime, todayStr, workedMinutes } from "@/lib/time";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/StatusBadge";
+import { cn } from "@/lib/utils";
+
+type Props = { title: string; subtitle?: string; teamFilter?: boolean; excludeUserId?: string };
+
+export function WorkReport({ title, subtitle, teamFilter, excludeUserId }: Props) {
+  const [from, setFrom] = useState(todayStr());
+  const [to, setTo] = useState(todayStr());
+  const [team, setTeam] = useState("all");
+  const [openRow, setOpenRow] = useState<string | null>(null);
+
+  const q = useQuery({
+    queryKey: ["report", from, to],
+    queryFn: async () => {
+      const [p, t, a, b, k] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, email, team_id").order("full_name"),
+        supabase.from("teams").select("id, name"),
+        supabase.from("attendance").select("*").gte("work_date", from).lte("work_date", to),
+        supabase.from("breaks").select("*, attendance!inner(work_date)").gte("attendance.work_date", from).lte("attendance.work_date", to),
+        supabase.from("tasks").select("*").gte("work_date", from).lte("work_date", to).order("created_at"),
+      ]);
+      return { profiles: p.data ?? [], teams: t.data ?? [], att: a.data ?? [], breaks: b.data ?? [], tasks: k.data ?? [] };
+    },
+  });
+
+  const rows = useMemo(() => {
+    if (!q.data) return [];
+    const teamName = new Map(q.data.teams.map((t) => [t.id, t.name]));
+    return q.data.profiles
+      .filter((p) => p.id !== excludeUserId)
+      .filter((p) => team === "all" || p.team_id === team)
+      .map((p) => {
+        const att = q.data.att.filter((x) => x.user_id === p.id).sort((x, y) => x.clock_in.localeCompare(y.clock_in));
+        const brk = q.data.breaks.filter((x) => x.user_id === p.id);
+        const tasks = q.data.tasks.filter((x) => x.user_id === p.id);
+        const open = att.some((x) => !x.clock_out);
+        return {
+          ...p,
+          team: p.team_id ? teamName.get(p.team_id) ?? "—" : "—",
+          firstIn: att[0]?.clock_in ?? null,
+          lastOut: open ? null : att[att.length - 1]?.clock_out ?? null,
+          status: !att.length ? "absent" : open ? "working" : "done",
+          worked: workedMinutes(att),
+          breaks: breakMinutes(brk),
+          breakCount: brk.length,
+          tasks,
+          hours: tasks.reduce((s, x) => s + Number(x.hours), 0),
+          days: new Set(att.map((x) => x.work_date)).size,
+        };
+      });
+  }, [q.data, team, excludeUserId]);
+
+  const totals = {
+    present: rows.filter((r) => r.status !== "absent").length,
+    working: rows.filter((r) => r.status === "working").length,
+    worked: rows.reduce((s, r) => s + r.worked, 0),
+    tasks: rows.reduce((s, r) => s + r.tasks.length, 0),
+    blocked: rows.reduce((s, r) => s + r.tasks.filter((t) => t.status === "blocked").length, 0),
+  };
+
+  function exportCsv() {
+    const lines = [["Name", "Email", "Team", "Days", "First in", "Last out", "Worked (min)", "Break (min)", "Breaks", "Tasks", "Task hours"]];
+    rows.forEach((r) =>
+      lines.push([r.full_name, r.email, r.team, String(r.days), r.firstIn ?? "", r.lastOut ?? "", String(Math.round(r.worked)), String(Math.round(r.breaks)), String(r.breakCount), String(r.tasks.length), r.hours.toFixed(2)]),
+    );
+    lines.push([]);
+    lines.push(["Task date", "Name", "Title", "Description", "Hours", "Status"]);
+    rows.forEach((r) => r.tasks.forEach((t) => lines.push([t.work_date, r.full_name, t.title, t.description ?? "", String(t.hours), t.status])));
+    const csv = lines.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `xoto-report-${from}-to-${to}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">{title}</h1>
+          {subtitle && <p className="text-muted-foreground">{subtitle}</p>}
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-muted-foreground">
+            From
+            <Input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="mt-1 w-40" />
+          </label>
+          <label className="text-xs text-muted-foreground">
+            To
+            <Input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="mt-1 w-40" />
+          </label>
+          {teamFilter && (
+            <label className="text-xs text-muted-foreground">
+              Team
+              <select value={team} onChange={(e) => setTeam(e.target.value)} className="mt-1 block h-9 rounded-md border bg-card px-3 text-sm text-foreground">
+                <option value="all">All teams</option>
+                {q.data?.teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <Button variant="outline" onClick={exportCsv} disabled={!rows.length}>
+            <Download /> Export CSV
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+        <Metric label="People" value={String(rows.length)} />
+        <Metric label="Present" value={`${totals.present}`} hint={`${totals.working} working now`} />
+        <Metric label="Total time" value={fmtDuration(totals.worked)} />
+        <Metric label="Tasks logged" value={String(totals.tasks)} />
+        <Metric label="Blocked" value={String(totals.blocked)} accent={totals.blocked > 0} />
+      </div>
+
+      <div className="overflow-x-auto rounded-3xl border bg-card shadow-card">
+        <table className="w-full text-sm">
+          <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Employee</th>
+              <th className="px-4 py-3">Team</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Time in</th>
+              <th className="px-4 py-3">Time out</th>
+              <th className="px-4 py-3">Total</th>
+              <th className="px-4 py-3">Breaks</th>
+              <th className="px-4 py-3">Tasks</th>
+              <th className="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody>
+            {q.isLoading && (
+              <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">Loading…</td></tr>
+            )}
+            {!q.isLoading && rows.length === 0 && (
+              <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">No people to show yet.</td></tr>
+            )}
+            {rows.map((r) => (
+              <Fragment key={r.id}>
+                <tr className="cursor-pointer border-b last:border-0 hover:bg-muted/40" onClick={() => setOpenRow(openRow === r.id ? null : r.id)}>
+                  <td className="px-4 py-3">
+                    <p className="font-semibold">{r.full_name || r.email}</p>
+                    <p className="text-xs text-muted-foreground">{r.email}</p>
+                  </td>
+                  <td className="px-4 py-3">{r.team}</td>
+                  <td className="px-4 py-3">
+                    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                      r.status === "working" && "bg-accent text-accent-foreground",
+                      r.status === "done" && "bg-secondary text-primary",
+                      r.status === "absent" && "bg-muted text-muted-foreground")}>
+                      {r.status === "working" ? "Working" : r.status === "done" ? "Clocked out" : "No record"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.firstIn)}</td>
+                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.lastOut)}</td>
+                  <td className="px-4 py-3 font-semibold tabular-nums">{fmtDuration(r.worked)}</td>
+                  <td className="px-4 py-3 tabular-nums">{fmtDuration(r.breaks)} <span className="text-muted-foreground">({r.breakCount})</span></td>
+                  <td className="px-4 py-3 tabular-nums">{r.tasks.length} · {r.hours.toFixed(1)}h</td>
+                  <td className="px-4 py-3"><ChevronDown className={cn("h-4 w-4 transition-transform", openRow === r.id && "rotate-180")} /></td>
+                </tr>
+                {openRow === r.id && (
+                  <tr className="border-b bg-muted/30">
+                    <td colSpan={9} className="px-6 py-4">
+                      {r.tasks.length === 0 ? (
+                        <p className="text-muted-foreground">No tasks logged in this period.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {r.tasks.map((t) => (
+                            <li key={t.id} className="flex items-start gap-3">
+                              <span className="w-24 text-xs text-muted-foreground">{t.work_date}</span>
+                              <div className="flex-1">
+                                <p className="font-medium">{t.title}</p>
+                                {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
+                              </div>
+                              <StatusBadge status={t.status} />
+                              <span className="w-12 text-right font-semibold">{Number(t.hours)}h</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: boolean }) {
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-card">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={cn("mt-2 font-display text-2xl font-bold tabular-nums", accent && "text-destructive")}>{value}</p>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
