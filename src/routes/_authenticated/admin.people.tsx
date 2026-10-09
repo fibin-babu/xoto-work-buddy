@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { createEmployee, updateAccess } from "@/lib/admin.functions";
+import { createEmployee, resetPassword, updateAccess } from "@/lib/admin.functions";
 import { useMe, type Role } from "@/lib/use-me";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ function PeoplePage() {
   const qc = useQueryClient();
   const create = useServerFn(createEmployee);
   const update = useServerFn(updateAccess);
+  const reset = useServerFn(resetPassword);
+  const [search, setSearch] = useState("");
   const [f, setF] = useState({ full_name: "", email: "", password: "", role: "employee" as Role, team_id: "" });
   const [teamName, setTeamName] = useState("");
 
@@ -92,7 +94,7 @@ function PeoplePage() {
           <ul className="divide-y">
             {teams.map((t) => (
               <li key={t.id} className="flex items-center justify-between gap-2 py-2">
-                <span className="font-medium">{t.name}</span>
+                <span className="flex-1 font-medium">{t.name} <span className="text-xs text-muted-foreground">· {q.data?.people.filter((p) => p.team_id === t.id).length ?? 0} people</span></span>
                 <select
                   className={sel}
                   value={t.manager_id ?? ""}
@@ -104,19 +106,29 @@ function PeoplePage() {
                   <option value="">No manager</option>
                   {q.data?.people.map((p) => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}
                 </select>
+                <Button variant="ghost" size="sm" onClick={async () => {
+                  if (!confirm(`Delete team "${t.name}"? Members will become unassigned.`)) return;
+                  await supabase.from("profiles").update({ team_id: null }).eq("team_id", t.id);
+                  const { error } = await supabase.from("teams").delete().eq("id", t.id);
+                  if (error) toast.error(error.message); else refresh();
+                }}>Delete</Button>
               </li>
             ))}
           </ul>
         </div>
       </div>
 
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-xl font-semibold">Everyone ({q.data?.people.length ?? 0})</h2>
+        <Input placeholder="Search name or email" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
+      </div>
       <div className="overflow-x-auto rounded-3xl border bg-card shadow-card">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Team</th></tr>
+            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Team</th><th className="px-4 py-3" /></tr>
           </thead>
           <tbody>
-            {q.data?.people.map((p) => (
+            {q.data?.people.filter((p) => `${p.full_name} ${p.email}`.toLowerCase().includes(search.toLowerCase())).map((p) => (
               <tr key={p.id} className="border-b last:border-0">
                 <td className="px-4 py-3"><p className="font-semibold">{p.full_name}</p><p className="text-xs text-muted-foreground">{p.email}</p></td>
                 <td className="px-4 py-3">
@@ -133,6 +145,14 @@ function PeoplePage() {
                     <option value="">No team</option>
                     {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    const pw = prompt(`New password for ${p.email} (min 8 characters)`);
+                    if (!pw) return;
+                    if (pw.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+                    try { await reset({ data: { user_id: p.id, password: pw } }); toast.success("Password updated"); } catch (err: any) { toast.error(err.message); }
+                  }}>Reset password</Button>
                 </td>
               </tr>
             ))}

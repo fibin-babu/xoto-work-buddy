@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Coffee, LogIn, LogOut, Play, Plus, Trash2 } from "lucide-react";
+import { Coffee, LogIn, LogOut, Paperclip, Play, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/use-me";
 import { breakMinutes, fmtDuration, fmtTime, todayStr, workedMinutes } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { StatusBadge, STATUSES } from "@/components/StatusBadge";
+import { AttachmentLink } from "@/components/AttachmentLink";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -169,7 +169,7 @@ function MyDay() {
                   <p className="font-medium">{t.title}</p>
                   {t.description && <p className="text-sm text-muted-foreground">{t.description}</p>}
                 </div>
-                <StatusBadge status={t.status} />
+                <AttachmentLink path={t.attachment_path} name={t.attachment_name} />
                 <span className="w-14 text-right font-semibold tabular-nums">{Number(t.hours)}h</span>
                 <Button
                   variant="ghost"
@@ -203,20 +203,27 @@ function TaskForm({ uid, date, onSaved }: { uid: string | undefined; date: strin
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [hours, setHours] = useState<number>(1);
-  const [status, setStatus] = useState<(typeof STATUSES)[number]["value"]>("done");
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !uid) return;
     setBusy(true);
+    let attachment_path: string | null = null;
+    if (file) {
+      attachment_path = `${uid}/${crypto.randomUUID()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+      const up = await supabase.storage.from("task-files").upload(attachment_path, file);
+      if (up.error) { setBusy(false); toast.error(up.error.message); return; }
+    }
     const { error } = await supabase.from("tasks").insert({
       user_id: uid,
       work_date: date,
       title: title.trim().slice(0, 200),
       description: desc.trim().slice(0, 2000) || null,
       hours,
-      status,
+      attachment_path,
+      attachment_name: file?.name.slice(0, 200) ?? null,
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
@@ -224,7 +231,7 @@ function TaskForm({ uid, date, onSaved }: { uid: string | undefined; date: strin
     setTitle("");
     setDesc("");
     setHours(1);
-    setStatus("done");
+    setFile(null);
     onSaved();
   }
 
@@ -269,22 +276,27 @@ function TaskForm({ uid, date, onSaved }: { uid: string | undefined; date: strin
         </div>
       </div>
       <div>
-        <p className="mb-2 text-sm font-medium text-muted-foreground">Status</p>
-        <div className="grid grid-cols-3 gap-2">
-          {STATUSES.map((s) => (
-            <button
-              type="button"
-              key={s.value}
-              onClick={() => setStatus(s.value)}
-              className={cn(
-                "h-10 rounded-lg border text-sm font-medium transition-colors",
-                status === s.value ? "border-primary bg-accent text-accent-foreground" : "hover:bg-muted",
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        <p className="mb-2 text-sm font-medium text-muted-foreground">Attachment (optional)</p>
+        {file ? (
+          <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+            <Paperclip className="h-4 w-4" />
+            <span className="flex-1 truncate">{file.name}</span>
+            <Button type="button" variant="ghost" size="icon" aria-label="Remove file" onClick={() => setFile(null)}><X /></Button>
+          </div>
+        ) : (
+          <label className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed text-sm text-muted-foreground hover:bg-muted">
+            <Paperclip className="h-4 w-4" /> Attach a file (max 20 MB)
+            <input
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                if (f && f.size > 20 * 1024 * 1024) { toast.error("File is larger than 20 MB"); return; }
+                setFile(f);
+              }}
+            />
+          </label>
+        )}
       </div>
       <Button type="submit" variant="brand" size="lg" className="w-full" disabled={busy || !title.trim()}>
         <Plus /> Add task

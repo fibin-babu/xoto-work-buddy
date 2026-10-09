@@ -11,5 +11,5 @@ function AdminPage() {
   const { data: me } = useMe();
   if (!me) return null;
   if (me.role !== "admin") return <p className="text-muted-foreground">Admins only.</p>;
-  return <WorkReport title="Company overview" subtitle="Time in, time out, breaks and tasks for everyone." teamFilter />;
+  return <WorkReport title="Company overview" subtitle="Time in, time out, breaks and tasks for everyone." teamFilter charts />;
 }

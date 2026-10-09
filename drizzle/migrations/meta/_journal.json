@@ -8,6 +8,13 @@
       "when": 1791445601737,
       "tag": "0000_xoto_tracker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791523383681,
+      "tag": "0001_task_attachments",
+      "breakpoints": true
     }
   ]
 }
