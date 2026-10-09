@@ -5,12 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { breakMinutes, fmtDuration, fmtTime, todayStr, workedMinutes } from "@/lib/time";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/StatusBadge";
+import { AttachmentLink } from "@/components/AttachmentLink";
 import { cn } from "@/lib/utils";
+import { ReportCharts } from "@/components/ReportCharts";
 
-type Props = { title: string; subtitle?: string; teamFilter?: boolean; excludeUserId?: string };
+type Props = { title: string; subtitle?: string; teamFilter?: boolean; excludeUserId?: string; charts?: boolean };
 
-export function WorkReport({ title, subtitle, teamFilter, excludeUserId }: Props) {
+export function WorkReport({ title, subtitle, teamFilter, excludeUserId, charts }: Props) {
   const [from, setFrom] = useState(todayStr());
   const [to, setTo] = useState(todayStr());
   const [team, setTeam] = useState("all");
@@ -62,7 +63,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId }: Props
     working: rows.filter((r) => r.status === "working").length,
     worked: rows.reduce((s, r) => s + r.worked, 0),
     tasks: rows.reduce((s, r) => s + r.tasks.length, 0),
-    blocked: rows.reduce((s, r) => s + r.tasks.filter((t) => t.status === "blocked").length, 0),
+    hours: rows.reduce((s, r) => s + r.hours, 0),
   };
 
   function exportCsv() {
@@ -71,8 +72,8 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId }: Props
       lines.push([r.full_name, r.email, r.team, String(r.days), r.firstIn ?? "", r.lastOut ?? "", String(Math.round(r.worked)), String(Math.round(r.breaks)), String(r.breakCount), String(r.tasks.length), r.hours.toFixed(2)]),
     );
     lines.push([]);
-    lines.push(["Task date", "Name", "Title", "Description", "Hours", "Status"]);
-    rows.forEach((r) => r.tasks.forEach((t) => lines.push([t.work_date, r.full_name, t.title, t.description ?? "", String(t.hours), t.status])));
+    lines.push(["Task date", "Name", "Title", "Description", "Hours", "Attachment"]);
+    rows.forEach((r) => r.tasks.forEach((t) => lines.push([t.work_date, r.full_name, t.title, t.description ?? "", String(t.hours), t.attachment_name ?? ""])));
     const csv = lines.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
@@ -120,8 +121,10 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId }: Props
         <Metric label="Present" value={`${totals.present}`} hint={`${totals.working} working now`} />
         <Metric label="Total time" value={fmtDuration(totals.worked)} />
         <Metric label="Tasks logged" value={String(totals.tasks)} />
-        <Metric label="Blocked" value={String(totals.blocked)} accent={totals.blocked > 0} />
+        <Metric label="Task hours" value={`${totals.hours.toFixed(1)}h`} />
       </div>
+
+      {charts && q.data && <ReportCharts rows={rows} att={q.data.att} tasks={q.data.tasks} from={from} to={to} />}
 
       <div className="overflow-x-auto rounded-3xl border bg-card shadow-card">
         <table className="w-full text-sm">
@@ -182,7 +185,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId }: Props
                                 <p className="font-medium">{t.title}</p>
                                 {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
                               </div>
-                              <StatusBadge status={t.status} />
+                              <AttachmentLink path={t.attachment_path} name={t.attachment_name} />
                               <span className="w-12 text-right font-semibold">{Number(t.hours)}h</span>
                             </li>
                           ))}
