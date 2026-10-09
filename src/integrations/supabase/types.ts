@@ -122,6 +122,8 @@ export type Database = {
       }
       tasks: {
         Row: {
+          attachment_name: string | null
+          attachment_path: string | null
           created_at: string
           description: string | null
           hours: number
@@ -132,6 +134,8 @@ export type Database = {
           work_date: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_path?: string | null
           created_at?: string
           description?: string | null
           hours?: number
@@ -142,6 +146,8 @@ export type Database = {
           work_date?: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_path?: string | null
           created_at?: string
           description?: string | null
           hours?: number
