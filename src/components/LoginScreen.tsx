@@ -155,6 +155,7 @@ export function LoginScreen() {
             <p className="text-center text-xs text-muted-foreground">No account? Ask your admin to create one.</p>
           )}
         </form>
+        )}
       </main>
     </div>
   );
