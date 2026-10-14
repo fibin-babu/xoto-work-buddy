@@ -23,7 +23,7 @@ function PeoplePage() {
   const update = useServerFn(updateAccess);
   const reset = useServerFn(resetPassword);
   const [search, setSearch] = useState("");
-  const [f, setF] = useState({ full_name: "", email: "", password: "", role: "employee" as Role, team_id: "" });
+  const [f, setF] = useState({ full_name: "", email: "", role: "employee" as Role, team_id: "" });
   const [teamName, setTeamName] = useState("");
 
   const q = useQuery({
@@ -44,9 +44,9 @@ function PeoplePage() {
   async function addUser(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await create({ data: { ...f, team_id: f.team_id || null } });
-      toast.success("Account created");
-      setF({ full_name: "", email: "", password: "", role: "employee", team_id: "" });
+      await create({ data: { ...f, team_id: f.team_id || null, redirect_to: `${window.location.origin}/reset-password` } });
+      toast.success("Invite sent — they'll set their own password");
+      setF({ full_name: "", email: "", role: "employee", team_id: "" });
       refresh();
     } catch (err: any) {
       toast.error(err?.message ?? "Failed");
@@ -72,7 +72,7 @@ function PeoplePage() {
           <h2 className="text-xl font-semibold">Create account</h2>
           <Input placeholder="Full name" required value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} />
           <Input placeholder="name@xoto.ae" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
-          <Input placeholder="Temporary password (min 8)" type="text" minLength={8} required value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
+          <p className="text-xs text-muted-foreground">They'll get an email invite to set their own password.</p>
           <div className="flex gap-2">
             <select className={sel} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Role })}>
               <option value="employee">Employee</option><option value="manager">Manager</option><option value="admin">Admin</option>
@@ -82,7 +82,7 @@ function PeoplePage() {
               {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
-          <Button type="submit" variant="brand" className="w-full">Create account</Button>
+          <Button type="submit" variant="brand" className="w-full">Send invite</Button>
         </form>
 
         <div className="space-y-3 rounded-3xl border bg-card p-6 shadow-card">
