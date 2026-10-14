@@ -10,6 +10,5 @@ export const Route = createFileRoute("/_authenticated/team")({
 function TeamPage() {
   const { data: me } = useMe();
   if (!me) return null;
-  if (me.role === "employee") return <p className="text-muted-foreground">This page is for team managers.</p>;
-  return <WorkReport title="My team" subtitle="Attendance and tasks for people on teams you manage." excludeUserId={me.id} />;
+  return <WorkReport title="My team" subtitle="Attendance and tasks for people on the teams you lead." excludeUserId={me.id} managerId={me.id} />;
 }

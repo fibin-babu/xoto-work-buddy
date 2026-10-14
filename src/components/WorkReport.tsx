@@ -9,9 +9,9 @@ import { AttachmentLink } from "@/components/AttachmentLink";
 import { cn } from "@/lib/utils";
 import { ReportCharts } from "@/components/ReportCharts";
 
-type Props = { title: string; subtitle?: string; teamFilter?: boolean; excludeUserId?: string; charts?: boolean };
+type Props = { title: string; subtitle?: string; teamFilter?: boolean; excludeUserId?: string; managerId?: string; charts?: boolean };
 
-export function WorkReport({ title, subtitle, teamFilter, excludeUserId, charts }: Props) {
+export function WorkReport({ title, subtitle, teamFilter, excludeUserId, managerId, charts }: Props) {
   const [from, setFrom] = useState(todayStr());
   const [to, setTo] = useState(todayStr());
   const [team, setTeam] = useState("all");
@@ -22,7 +22,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, charts 
     queryFn: async () => {
       const [p, t, a, b, k] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, team_id").order("full_name"),
-        supabase.from("teams").select("id, name"),
+        supabase.from("teams").select("id, name, manager_id"),
         supabase.from("attendance").select("*").gte("work_date", from).lte("work_date", to),
         supabase.from("breaks").select("*, attendance!inner(work_date)").gte("attendance.work_date", from).lte("attendance.work_date", to),
         supabase.from("tasks").select("*").gte("work_date", from).lte("work_date", to).order("created_at"),
@@ -34,7 +34,9 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, charts 
   const rows = useMemo(() => {
     if (!q.data) return [];
     const teamName = new Map(q.data.teams.map((t) => [t.id, t.name]));
+    const mine = managerId ? new Set(q.data.teams.filter((t) => t.manager_id === managerId).map((t) => t.id)) : null;
     return q.data.profiles
+      .filter((p) => !mine || (p.team_id != null && mine.has(p.team_id)))
       .filter((p) => p.id !== excludeUserId)
       .filter((p) => team === "all" || p.team_id === team)
       .map((p) => {
@@ -56,7 +58,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, charts 
           days: new Set(att.map((x) => x.work_date)).size,
         };
       });
-  }, [q.data, team, excludeUserId]);
+  }, [q.data, team, excludeUserId, managerId]);
 
   const totals = {
     present: rows.filter((r) => r.status !== "absent").length,
