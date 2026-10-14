@@ -55,7 +55,6 @@ export const createEmployee = createServerFn({ method: "POST" })
     z
       .object({
         email,
-        password: z.string().min(8).max(72),
         full_name: z.string().trim().min(1).max(100),
         role,
         team_id: z.string().uuid().nullable(),
@@ -65,12 +64,12 @@ export const createEmployee = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: u, error } = await supabaseAdmin.auth.admin.createUser({
-      email: data.email,
-      password: data.password,
-      email_confirm: true,
+    // Invite by email: the person gets a link to set their own password
+    // before first sign-in — no temporary passwords.
+    const { data: u, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
+      redirectTo: `${process.env.VITE_SUPABASE_URL ? "" : ""}${"/reset-password"}`,
     });
-    if (error || !u.user) throw new Error(error?.message ?? "Could not create user");
+    if (error || !u.user) throw new Error(error?.message ?? "Could not invite user");
     const { error: pe } = await supabaseAdmin
       .from("profiles")
       .insert({ id: u.user.id, email: data.email, full_name: data.full_name, team_id: data.team_id });

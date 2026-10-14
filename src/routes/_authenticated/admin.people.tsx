@@ -23,7 +23,7 @@ function PeoplePage() {
   const update = useServerFn(updateAccess);
   const reset = useServerFn(resetPassword);
   const [search, setSearch] = useState("");
-  const [f, setF] = useState({ full_name: "", email: "", password: "", role: "employee" as Role, team_id: "" });
+  const [f, setF] = useState({ full_name: "", email: "", role: "employee" as Role, team_id: "" });
   const [teamName, setTeamName] = useState("");
 
   const q = useQuery({
