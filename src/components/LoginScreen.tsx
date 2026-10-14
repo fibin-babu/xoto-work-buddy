@@ -20,13 +20,33 @@ export function LoginScreen() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/dashboard", replace: true });
+    // Local session read — no network round-trip, so the page feels instant.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) navigate({ to: "/dashboard", replace: true });
     });
     checkAdmin().then((r) => setNeedsSetup(!r.exists)).catch(() => {});
   }, []);
+
+  async function sendReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isCompanyEmail(email)) { toast.error("Use your @xoto.ae company email"); return; }
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("Reset link sent — check your email");
+      setForgot(false);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not send reset email");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
