@@ -117,7 +117,14 @@ export function LoginScreen() {
             <Input id="email" type="email" autoComplete="email" placeholder="you@xoto.ae" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="pw">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="pw">Password</Label>
+              {!needsSetup && (
+                <button type="button" onClick={() => setForgot(true)} className="text-xs font-medium text-primary hover:underline">
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <Input id="pw" type="password" autoComplete="current-password" minLength={needsSetup ? 8 : 1} value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12" />
           </div>
           <Button type="submit" variant="brand" size="xl" className="w-full" disabled={busy}>
