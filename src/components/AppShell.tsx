@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, LogOut, Sun, Users, UserCog } from "lucide-react";
+import { KeyRound, LayoutDashboard, LogOut, Sun, Users, UserCog } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/use-me";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,11 @@ export function AppShell() {
             <p className="text-sm font-semibold leading-tight">{me?.profile?.full_name || me?.email}</p>
             <p className="text-xs capitalize text-muted-foreground">{me?.role}</p>
           </div>
+          <Link to="/reset-password" aria-label="Change password">
+            <Button variant="ghost" size="icon" aria-label="Change password">
+              <KeyRound />
+            </Button>
+          </Link>
           <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out">
             <LogOut />
           </Button>

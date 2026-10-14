@@ -58,6 +58,7 @@ export const createEmployee = createServerFn({ method: "POST" })
         full_name: z.string().trim().min(1).max(100),
         role,
         team_id: z.string().uuid().nullable(),
+        redirect_to: z.string().url().max(500),
       })
       .parse(d),
   )
@@ -67,7 +68,7 @@ export const createEmployee = createServerFn({ method: "POST" })
     // Invite by email: the person gets a link to set their own password
     // before first sign-in — no temporary passwords.
     const { data: u, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
-      redirectTo: `${process.env.VITE_SUPABASE_URL ? "" : ""}${"/reset-password"}`,
+      redirectTo: data.redirect_to,
     });
     if (error || !u.user) throw new Error(error?.message ?? "Could not invite user");
     const { error: pe } = await supabaseAdmin
