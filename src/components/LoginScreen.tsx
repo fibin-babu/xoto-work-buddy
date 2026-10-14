@@ -96,6 +96,27 @@ export function LoginScreen() {
       </aside>
 
       <main className="relative flex items-center justify-center p-6">
+        {forgot ? (
+        <form onSubmit={sendReset} className="w-full max-w-md space-y-6 rounded-3xl bg-card p-8 text-card-foreground shadow-brand sm:p-10">
+          <img src={logo.url} alt="Xoto" className="-ml-3 h-20 w-auto" />
+          <div>
+            <h2 className="font-display text-3xl font-bold">Reset your password</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Enter your company email and we'll send you a link to set a new password.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="reset-email">Company email</Label>
+            <Input id="reset-email" type="email" autoComplete="email" placeholder="you@xoto.ae" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12" />
+          </div>
+          <Button type="submit" variant="brand" size="xl" className="w-full" disabled={busy}>
+            {busy ? "Sending…" : "Send reset link"}
+          </Button>
+          <button type="button" onClick={() => setForgot(false)} className="w-full text-center text-xs font-medium text-primary hover:underline">
+            Back to sign in
+          </button>
+        </form>
+        ) : (
         <form onSubmit={submit} className="w-full max-w-md space-y-6 rounded-3xl bg-card p-8 text-card-foreground shadow-brand sm:p-10">
           <img src={logo.url} alt="Xoto" className="-ml-3 h-20 w-auto" />
           <div>
