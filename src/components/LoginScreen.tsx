@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { adminExists, bootstrapAdmin } from "@/lib/admin.functions";
 import { isCompanyEmail } from "@/lib/time";
+import { XoBot } from "@/components/XoBot";
 import logo from "@/assets/xoto-logo.png.asset.json";
 
 export function LoginScreen() {
@@ -93,6 +94,7 @@ export function LoginScreen() {
           </div>
         </div>
         <p className="text-sm opacity-40">© {new Date().getFullYear()} Xoto Proptech</p>
+        <XoBot className="pointer-events-none absolute -bottom-6 right-4 w-56 xl:w-64" />
       </aside>
 
       <main className="relative flex items-center justify-center p-6">
