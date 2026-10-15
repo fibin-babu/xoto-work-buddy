@@ -8,7 +8,6 @@ const EYES = [
 ];
 const EYE_SIZE = 0.145; // eye diameter as a fraction of image width
 const IRIS_RATIO = 0.62; // iris diameter relative to the eye
-const MAX_TRAVEL = 0.16; // how far the iris can move, relative to eye size
 
 export function XoBot({ className = "" }: { className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
