@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/use-me";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/xoto-logo.png.asset.json";
+import { InstallButton } from "./InstallButton";
 
 export function AppShell() {
   const { data: me } = useMe();
@@ -51,6 +52,7 @@ export function AppShell() {
             <p className="text-sm font-semibold leading-tight">{me?.profile?.full_name || me?.email}</p>
             <p className="text-xs capitalize text-muted-foreground">{me?.role}</p>
           </div>
+          <InstallButton />
           <Link to="/reset-password" aria-label="Change password">
             <Button variant="ghost" size="icon" aria-label="Change password">
               <KeyRound />
