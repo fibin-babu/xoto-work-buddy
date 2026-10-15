@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AttachmentLink } from "@/components/AttachmentLink";
+import { TaskTimer } from "@/components/TaskTimer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -151,6 +152,8 @@ function MyDay() {
 
         <TaskForm uid={uid} date={date} onSaved={refresh} />
       </section>
+
+      <TaskTimer uid={uid} date={date} onSaved={refresh} />
 
       <section className="rounded-3xl border bg-card p-6 shadow-card">
         <div className="mb-4 flex items-baseline justify-between">
