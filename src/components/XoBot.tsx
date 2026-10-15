@@ -52,7 +52,7 @@ export function XoBot({ className = "" }: { className?: string }) {
               inset: `${(1 - IRIS_RATIO) * 50}%`,
               background:
                 "radial-gradient(circle at 35% 30%, #7dd3fc 0%, #38bdf8 35%, #4ade80 75%, #16a34a 100%)",
-              transform: `translate(${look.x * EYE_SIZE * MAX_TRAVEL * 100 * 4}%, ${look.y * EYE_SIZE * MAX_TRAVEL * 100 * 4}%)`,
+              transform: `translate(${look.x * 30}%, ${look.y * 30}%)`,
             }}
           >
             <div className="absolute rounded-full bg-black" style={{ inset: "22%" }} />
