@@ -9,33 +9,71 @@ const EYES = [
 const EYE_SIZE = 0.215; // eye diameter as a fraction of image width
 const IRIS_RATIO = 0.62; // iris diameter relative to the eye
 
-// XO's head peeks in from the bottom-right corner of the screen and its eyes
-// follow the mouse — same trick as the login-screen mascot, just the head.
+// Behavior: the head slides in only while the mouse is moving, tucks away
+// after a few seconds of idle, and never pops up when the cursor comes close
+// to its corner — so it never gets in the way of real work.
+const IDLE_MS = 3000; // hide after this much time without mouse movement
+const AVOID_RADIUS = 260; // px around the corner that keeps the bot hidden
+
 export function XoBotPeek() {
   const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
   const [look, setLook] = useState({ x: 0, y: 0 });
+  const idleTimer = useRef<number | undefined>(undefined);
+  const avoidRef = useRef(false);
+  const visibleRef = useRef(false);
 
   useEffect(() => {
+    function setV(v: boolean) {
+      visibleRef.current = v;
+      setVisible(v);
+    }
+
     function onMove(e: MouseEvent) {
       const el = ref.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height * 0.62; // roughly the face
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const dist = Math.hypot(dx, dy) || 1;
-      const strength = Math.min(1, dist / 300);
-      setLook({ x: (dx / dist) * strength, y: (dy / dist) * strength });
+      if (el) {
+        // Eyes follow the mouse while the bot is on screen.
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height * 0.62; // roughly the face
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        const dist = Math.hypot(dx, dy) || 1;
+        const strength = Math.min(1, dist / 300);
+        setLook({ x: (dx / dist) * strength, y: (dy / dist) * strength });
+      }
+
+      // Near the corner? Stay hidden so the bot never blocks the user.
+      const nearCorner =
+        window.innerWidth - e.clientX < AVOID_RADIUS &&
+        window.innerHeight - e.clientY < AVOID_RADIUS;
+      avoidRef.current = nearCorner;
+
+      if (nearCorner) {
+        setV(false);
+      } else if (!visibleRef.current && !avoidRef.current) {
+        setV(true);
+      } else if (!visibleRef.current && avoidRef.current) {
+        // came near then left; show once they move away
+      }
+
+      window.clearTimeout(idleTimer.current);
+      idleTimer.current = window.setTimeout(() => setV(false), IDLE_MS);
     }
+
     window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.clearTimeout(idleTimer.current);
+    };
   }, []);
 
   return (
     <div
       ref={ref}
-      className="pointer-events-none fixed -bottom-1 -right-3.5 z-40 w-36 select-none sm:w-44"
+      className={`pointer-events-none fixed -bottom-1 -right-3.5 z-40 w-36 select-none transition-all duration-500 ease-out sm:w-44 ${
+        visible ? "translate-x-0 translate-y-0 opacity-100" : "translate-x-24 translate-y-24 opacity-0"
+      }`}
       aria-hidden="true"
     >
       <img
