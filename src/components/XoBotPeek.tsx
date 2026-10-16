@@ -35,7 +35,7 @@ export function XoBotPeek() {
   return (
     <div
       ref={ref}
-      className="pointer-events-none fixed -bottom-5 -right-2 z-40 w-32 select-none sm:w-40"
+      className="pointer-events-none fixed -bottom-1 -right-3.5 z-40 w-36 select-none sm:w-44"
       aria-hidden="true"
     >
       <img
