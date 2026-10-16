@@ -6,6 +6,7 @@ import { useMe } from "@/lib/use-me";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/xoto-logo.png.asset.json";
 import { InstallButton } from "./InstallButton";
+import { XoBotPeek } from "./XoBotPeek";
 
 export function AppShell() {
   const { data: me } = useMe();
@@ -66,6 +67,7 @@ export function AppShell() {
       <main className="mx-auto max-w-7xl px-4 py-8">
         <Outlet />
       </main>
+      <XoBotPeek />
     </div>
   );
 }
