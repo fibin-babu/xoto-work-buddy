@@ -101,6 +101,21 @@
   --gradient-brand: linear-gradient(135deg, var(--brand-blue), oklch(0.75 0.16 170) 55%, var(--brand-green));
   --shadow-brand: 0 10px 30px -10px oklch(0.68 0.16 200 / 0.55);
   --shadow-card: 0 1px 2px oklch(0.2 0.03 252 / 0.04), 0 8px 24px -12px oklch(0.2 0.03 252 / 0.12);
+  --xo-eye: oklch(1 0 0);
+  --xo-pupil: oklch(0.1 0 0);
+  --xo-iris: radial-gradient(circle at 35% 30%, var(--secondary) 0%, var(--brand-blue) 35%, var(--brand-green) 75%, var(--success) 100%);
+}
+
+.xo-eye { background: var(--xo-eye); }
+.xo-pupil { background: var(--xo-pupil); }
+.xo-iris { background: var(--xo-iris); }
+.xo-mobile-float { animation: xo-float 4s ease-in-out infinite; }
+@keyframes xo-float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-5px) rotate(2deg); }
+}
+@media (min-width: 1024px), (prefers-reduced-motion: reduce) {
+  .xo-mobile-float { animation: none; }
 }
 
 @utility bg-brand-gradient {

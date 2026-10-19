@@ -14,7 +14,7 @@ export function XoBot({ className = "" }: { className?: string }) {
   const [look, setLook] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    function onMove(e: MouseEvent) {
+    function onMove(e: PointerEvent) {
       const el = ref.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
@@ -27,8 +27,21 @@ export function XoBot({ className = "" }: { className?: string }) {
       const strength = Math.min(1, dist / 300);
       setLook({ x: (dx / dist) * strength, y: (dy / dist) * strength });
     }
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
+    function onTouch(e: TouchEvent) {
+      const touch = e.touches[0];
+      if (touch) onMove({ clientX: touch.clientX, clientY: touch.clientY } as PointerEvent);
+    }
+    function reset() { setLook({ x: 0, y: 0 }); }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerdown", onMove);
+    window.addEventListener("touchmove", onTouch, { passive: true });
+    window.addEventListener("pointerup", reset);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerdown", onMove);
+      window.removeEventListener("touchmove", onTouch);
+      window.removeEventListener("pointerup", reset);
+    };
   }, []);
 
   return (
@@ -37,7 +50,7 @@ export function XoBot({ className = "" }: { className?: string }) {
       {EYES.map((eye, i) => (
         <div
           key={i}
-          className="absolute rounded-full bg-white shadow-inner"
+          className="xo-eye absolute rounded-full shadow-inner"
           style={{
             left: `${(eye.x - EYE_SIZE / 2) * 100}%`,
             top: `${(eye.y - (EYE_SIZE * 1.0) / 2) * 100}%`,
@@ -46,17 +59,15 @@ export function XoBot({ className = "" }: { className?: string }) {
           }}
         >
           <div
-            className="absolute rounded-full transition-transform duration-100 ease-out"
+            className="xo-iris absolute rounded-full transition-transform duration-100 ease-out motion-reduce:transition-none"
             style={{
               inset: `${(1 - IRIS_RATIO) * 50}%`,
-              background:
-                "radial-gradient(circle at 35% 30%, #7dd3fc 0%, #38bdf8 35%, #4ade80 75%, #16a34a 100%)",
               transform: `translate(${look.x * 42}%, ${look.y * 42}%)`,
             }}
           >
-            <div className="absolute rounded-full bg-black" style={{ inset: "22%" }} />
+            <div className="xo-pupil absolute rounded-full" style={{ inset: "22%" }} />
             <div
-              className="absolute rounded-full bg-white"
+              className="xo-eye absolute rounded-full"
               style={{ width: "26%", height: "26%", left: "18%", top: "14%" }}
             />
           </div>
