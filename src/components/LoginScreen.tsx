@@ -97,7 +97,8 @@ export function LoginScreen() {
         <XoBot className="pointer-events-none absolute -bottom-6 right-4 w-56 xl:w-64" />
       </aside>
 
-      <main className="relative flex items-center justify-center p-6">
+      <main className="relative flex flex-col items-center justify-center gap-4 p-6">
+        <XoBot className="xo-mobile-float pointer-events-none w-24 shrink-0 lg:hidden" />
         {forgot ? (
         <form onSubmit={sendReset} className="w-full max-w-md space-y-6 rounded-3xl bg-card p-8 text-card-foreground shadow-brand sm:p-10">
           <img src={logo.url} alt="Xoto" className="-ml-3 h-20 w-auto" />
