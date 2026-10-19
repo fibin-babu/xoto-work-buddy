@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep ongoing timer drafts in user-scoped browser storage and their transitions in `src/lib/task-timing.ts`; this preserves paused time across navigation without treating unfinished tasks as completed reports.
+- Complete timed tasks with their stable UUID and an ignore-duplicate insert; this makes repeated clicks and uncertain network retries safe.
