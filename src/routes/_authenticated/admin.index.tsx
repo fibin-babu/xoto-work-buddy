@@ -3,7 +3,7 @@ import { WorkReport } from "@/components/WorkReport";
 import { useMe } from "@/lib/use-me";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
-  head: () => ({ meta: [{ title: "Admin overview — Xoto Workday" }] }),
+  head: () => ({ meta: [{ title: "Admin overview — Xoto Workday" }, { name: "description", content: "View company-wide attendance, work hours, breaks, and task reports." }, { property: "og:title", content: "Admin overview — Xoto Workday" }, { property: "og:description", content: "View company-wide attendance, work hours, breaks, and task reports." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: AdminPage,
 });
 
