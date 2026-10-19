@@ -14,22 +14,23 @@ export function XoBot({ className = "" }: { className?: string }) {
   const [look, setLook] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    function onMove(e: PointerEvent) {
+    function track(x: number, y: number) {
       const el = ref.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height * 0.36; // roughly the face
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
+      const dx = x - cx;
+      const dy = y - cy;
       const dist = Math.hypot(dx, dy) || 1;
       // Ease off with distance so the eyes glide instead of snapping.
       const strength = Math.min(1, dist / 300);
       setLook({ x: (dx / dist) * strength, y: (dy / dist) * strength });
     }
+    function onMove(e: PointerEvent) { track(e.clientX, e.clientY); }
     function onTouch(e: TouchEvent) {
       const touch = e.touches[0];
-      if (touch) onMove({ clientX: touch.clientX, clientY: touch.clientY } as PointerEvent);
+      if (touch) track(touch.clientX, touch.clientY);
     }
     function reset() { setLook({ x: 0, y: 0 }); }
     window.addEventListener("pointermove", onMove);
