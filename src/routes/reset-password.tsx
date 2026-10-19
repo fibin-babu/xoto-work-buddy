@@ -10,6 +10,8 @@ import logo from "@/assets/xoto-logo.png.asset.json";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Reset password — Xoto Workday" },
       { name: "description", content: "Set a new password for your Xoto Workday account." },
       { property: "og:title", content: "Reset password — Xoto Workday" },

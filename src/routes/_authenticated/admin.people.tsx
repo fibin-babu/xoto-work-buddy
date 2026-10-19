@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/admin/people")({
-  head: () => ({ meta: [{ title: "People & Teams — Xoto Workday" }] }),
+  head: () => ({ meta: [{ title: "People & Teams — Xoto Workday" }, { name: "description", content: "Manage employee accounts, roles, and team assignments." }, { property: "og:title", content: "People & Teams — Xoto Workday" }, { property: "og:description", content: "Manage employee accounts, roles, and team assignments." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: PeoplePage,
 });
 

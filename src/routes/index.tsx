@@ -4,6 +4,8 @@ import { LoginScreen } from "@/components/LoginScreen";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Xoto Workday — Sign in" },
       { name: "description", content: "Sign in to Xoto Workday to clock in and log your daily tasks." },
       { property: "og:title", content: "Xoto Workday — Sign in" },
