@@ -5,7 +5,7 @@ export type ReminderKind = "end" | "late";
 
 function parseTime(t: string) {
   const [h, m] = t.split(":").map(Number);
-  return h * 60 + (m || 0);
+  return (h || 0) * 60 + (m || 0);
 }
 
 /** Which clock-out reminder is due right now (local time), or null. */
