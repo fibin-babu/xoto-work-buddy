@@ -54,8 +54,14 @@ export function LoginScreen() {
     if (!isCompanyEmail(email)) { toast.error("Use your @xoto.ae company email"); return; }
     setBusy(true);
     try {
-      if (needsSetup) await setup({ data: { email, password, full_name: name } });
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("The server is taking too long to respond. Please try again in a minute.")), 20_000),
+      );
+      if (needsSetup) await Promise.race([setup({ data: { email, password, full_name: name } }), timeout]);
+      const { error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }),
+        timeout,
+      ]);
       if (error) throw error;
       navigate({ to: "/dashboard", replace: true });
     } catch (err: any) {
