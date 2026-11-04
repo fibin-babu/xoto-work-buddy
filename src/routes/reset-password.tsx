@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/PasswordInput";
 import logo from "@/assets/xoto-logo.png.asset.json";
 
 export const Route = createFileRoute("/reset-password")({
@@ -85,11 +85,11 @@ function ResetPasswordPage() {
           <>
             <div className="space-y-2">
               <Label htmlFor="new-pw">New password</Label>
-              <Input id="new-pw" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12" />
+              <PasswordInput id="new-pw" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-pw">Confirm password</Label>
-              <Input id="confirm-pw" type="password" autoComplete="new-password" minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} required className="h-12" />
+              <PasswordInput id="confirm-pw" autoComplete="new-password" minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} required className="h-12" />
             </div>
             <Button type="submit" variant="brand" size="xl" className="w-full" disabled={busy || !ready}>
               {busy ? "Updating…" : "Update password"}

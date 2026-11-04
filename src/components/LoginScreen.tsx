@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/PasswordInput";
 import { adminExists, bootstrapAdmin } from "@/lib/admin.functions";
 import { isCompanyEmail } from "@/lib/time";
 import { XoBot } from "@/components/XoBot";
@@ -155,7 +156,7 @@ export function LoginScreen() {
                 </button>
               )}
             </div>
-            <Input id="pw" type="password" autoComplete="current-password" minLength={needsSetup ? 8 : 1} value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12" />
+            <PasswordInput id="pw" autoComplete="current-password" minLength={needsSetup ? 8 : 1} value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12" />
           </div>
           <Button type="submit" variant="brand" size="xl" className="w-full" disabled={busy}>
             {busy ? "Please wait…" : needsSetup ? "Create admin & sign in" : "Sign in"}
