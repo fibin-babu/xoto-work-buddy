@@ -15,6 +15,13 @@
       "when": 1791523383681,
       "tag": "0001_task_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793772855337,
+      "tag": "0002_shifts_and_locations",
+      "breakpoints": true
     }
   ]
 }

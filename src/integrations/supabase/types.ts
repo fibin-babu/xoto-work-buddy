@@ -20,6 +20,16 @@ export type Database = {
           clock_out: string | null
           created_at: string
           id: string
+          in_accuracy: number | null
+          in_lat: number | null
+          in_lng: number | null
+          in_location_name: string | null
+          in_onsite: boolean | null
+          out_accuracy: number | null
+          out_lat: number | null
+          out_lng: number | null
+          out_location_name: string | null
+          out_onsite: boolean | null
           user_id: string
           work_date: string
         }
@@ -28,6 +38,16 @@ export type Database = {
           clock_out?: string | null
           created_at?: string
           id?: string
+          in_accuracy?: number | null
+          in_lat?: number | null
+          in_lng?: number | null
+          in_location_name?: string | null
+          in_onsite?: boolean | null
+          out_accuracy?: number | null
+          out_lat?: number | null
+          out_lng?: number | null
+          out_location_name?: string | null
+          out_onsite?: boolean | null
           user_id: string
           work_date?: string
         }
@@ -36,6 +56,16 @@ export type Database = {
           clock_out?: string | null
           created_at?: string
           id?: string
+          in_accuracy?: number | null
+          in_lat?: number | null
+          in_lng?: number | null
+          in_location_name?: string | null
+          in_onsite?: boolean | null
+          out_accuracy?: number | null
+          out_lat?: number | null
+          out_lng?: number | null
+          out_location_name?: string | null
+          out_onsite?: boolean | null
           user_id?: string
           work_date?: string
         }
@@ -94,6 +124,8 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          shift_end: string | null
+          shift_start: string | null
           team_id: string | null
         }
         Insert: {
@@ -101,6 +133,8 @@ export type Database = {
           email: string
           full_name?: string
           id: string
+          shift_end?: string | null
+          shift_start?: string | null
           team_id?: string | null
         }
         Update: {
@@ -108,6 +142,8 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          shift_end?: string | null
+          shift_start?: string | null
           team_id?: string | null
         }
         Relationships: [
@@ -196,6 +232,36 @@ export type Database = {
           },
         ]
       }
+      user_locations: {
+        Row: {
+          location_id: string
+          user_id: string
+        }
+        Insert: {
+          location_id: string
+          user_id: string
+        }
+        Update: {
+          location_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "work_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_locations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -214,6 +280,33 @@ export type Database = {
         }
         Relationships: []
       }
+      work_locations: {
+        Row: {
+          created_at: string
+          id: string
+          lat: number
+          lng: number
+          name: string
+          radius_m: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lat: number
+          lng: number
+          name: string
+          radius_m?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          name?: string
+          radius_m?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -229,6 +322,10 @@ export type Database = {
       manages_user: {
         Args: { _manager: string; _user: string }
         Returns: boolean
+      }
+      nearest_work_location: {
+        Args: { _lat: number; _lng: number; _user: string }
+        Returns: Record<string, unknown>
       }
     }
     Enums: {
