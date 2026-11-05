@@ -80,7 +80,7 @@ function PeoplePage() {
   }
 
   async function saveShift(id: string, field: "shift_start" | "shift_end", value: string) {
-    const { error } = await supabase.from("profiles").update({ [field]: value || null }).eq("id", id);
+    const { error } = await supabase.from("profiles").update(field === "shift_start" ? { shift_start: value || null } : { shift_end: value || null }).eq("id", id);
     if (error) toast.error(error.message); else refresh();
   }
 
