@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import logo from "@/assets/xoto-logo.png.asset.json";
 import { InstallButton } from "./InstallButton";
 import { XoBotPeek } from "./XoBotPeek";
+import { ShiftReminder } from "./ShiftReminder";
 
 export function AppShell() {
   const { data: me } = useMe();
@@ -68,6 +69,7 @@ export function AppShell() {
         <Outlet />
       </main>
       <XoBotPeek />
+      <ShiftReminder />
     </div>
   );
 }

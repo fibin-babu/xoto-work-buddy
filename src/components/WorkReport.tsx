@@ -48,6 +48,8 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
           ...p,
           team: p.team_id ? teamName.get(p.team_id) ?? "—" : "—",
           firstIn: att[0]?.clock_in ?? null,
+          inSite: att[0]?.in_onsite ?? null,
+          outSite: open ? null : att[att.length - 1]?.out_onsite ?? null,
           lastOut: open ? null : att[att.length - 1]?.clock_out ?? null,
           status: !att.length ? "absent" : open ? "working" : "done",
           worked: workedMinutes(att),
@@ -166,8 +168,8 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
                       {r.status === "working" ? "Working" : r.status === "done" ? "Clocked out" : "No record"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.firstIn)}</td>
-                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.lastOut)}</td>
+                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.firstIn)}<SiteMark v={r.inSite} /></td>
+                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.lastOut)}<SiteMark v={r.outSite} /></td>
                   <td className="px-4 py-3 font-semibold tabular-nums">{fmtDuration(r.worked)}</td>
                   <td className="px-4 py-3 tabular-nums">{fmtDuration(r.breaks)} <span className="text-muted-foreground">({r.breakCount})</span></td>
                   <td className="px-4 py-3 tabular-nums">{r.tasks.length} · {r.hours.toFixed(1)}h</td>
@@ -213,4 +215,11 @@ function Metric({ label, value, hint, accent }: { label: string; value: string; 
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
+}
+
+function SiteMark({ v }: { v: boolean | null }) {
+  if (v === null) return null;
+  return v
+    ? <span className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground">On-site</span>
+    : <span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">Off-site</span>;
 }

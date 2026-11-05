@@ -8,6 +8,7 @@ import { createEmployee, resetPassword, updateAccess } from "@/lib/admin.functio
 import { useMe, type Role } from "@/lib/use-me";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getFix } from "@/lib/geo";
 
 export const Route = createFileRoute("/_authenticated/admin/people")({
   head: () => ({ meta: [{ title: "People & Teams — Xoto Workday" }, { name: "description", content: "Manage employee accounts, roles, and team assignments." }, { property: "og:title", content: "People & Teams — Xoto Workday" }, { property: "og:description", content: "Manage employee accounts, roles, and team assignments." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
@@ -25,16 +26,19 @@ function PeoplePage() {
   const [search, setSearch] = useState("");
   const [f, setF] = useState({ full_name: "", email: "", role: "employee" as Role, team_id: "" });
   const [teamName, setTeamName] = useState("");
+  const [loc, setLoc] = useState({ name: "", lat: "", lng: "", radius_m: "200" });
 
   const q = useQuery({
     queryKey: ["people"],
     queryFn: async () => {
-      const [p, t, r] = await Promise.all([
+      const [p, t, r, l, ul] = await Promise.all([
         supabase.from("profiles").select("*").order("full_name"),
         supabase.from("teams").select("*").order("name"),
         supabase.from("user_roles").select("*"),
+        supabase.from("work_locations").select("*").order("name"),
+        supabase.from("user_locations").select("*"),
       ]);
-      return { people: p.data ?? [], teams: t.data ?? [], roles: r.data ?? [] };
+      return { people: p.data ?? [], teams: t.data ?? [], roles: r.data ?? [], locs: l.data ?? [], userLocs: ul.data ?? [] };
     },
   });
   const refresh = () => qc.invalidateQueries();
@@ -61,6 +65,33 @@ function PeoplePage() {
     refresh();
   }
 
+  async function addLocation(e: React.FormEvent) {
+    e.preventDefault();
+    const { error } = await supabase.from("work_locations").insert({ name: loc.name.trim(), lat: Number(loc.lat), lng: Number(loc.lng), radius_m: Number(loc.radius_m) });
+    if (error) { toast.error(error.message); return; }
+    setLoc({ name: "", lat: "", lng: "", radius_m: "200" });
+    refresh();
+  }
+
+  async function useMyLocation() {
+    const f = await getFix();
+    if (!f) { toast.error("Couldn't get your location"); return; }
+    setLoc((l) => ({ ...l, lat: f.lat.toFixed(6), lng: f.lng.toFixed(6) }));
+  }
+
+  async function saveShift(id: string, field: "shift_start" | "shift_end", value: string) {
+    const { error } = await supabase.from("profiles").update(field === "shift_start" ? { shift_start: value || null } : { shift_end: value || null }).eq("id", id);
+    if (error) toast.error(error.message); else refresh();
+  }
+
+  async function toggleLoc(user_id: string, location_id: string, on: boolean) {
+    const { error } = on
+      ? await supabase.from("user_locations").insert({ user_id, location_id })
+      : await supabase.from("user_locations").delete().eq("user_id", user_id).eq("location_id", location_id);
+    if (error) toast.error(error.message); else refresh();
+  }
+
+  const locs = q.data?.locs ?? [];
   const teams = q.data?.teams ?? [];
   const roleOf = (id: string) => (q.data?.roles.find((r) => r.user_id === id)?.role ?? "employee") as Role;
 
@@ -118,6 +149,31 @@ function PeoplePage() {
         </div>
       </div>
 
+      <div className="space-y-3 rounded-3xl border bg-card p-6 shadow-card">
+        <h2 className="text-xl font-semibold">Work locations</h2>
+        <p className="text-sm text-muted-foreground">People assigned to a location are checked against it when they clock in and out.</p>
+        <form onSubmit={addLocation} className="flex flex-wrap gap-2">
+          <Input placeholder="Name (e.g. Dubai office)" required value={loc.name} onChange={(e) => setLoc({ ...loc, name: e.target.value })} className="min-w-48 flex-1" />
+          <Input placeholder="Latitude" required type="number" step="any" value={loc.lat} onChange={(e) => setLoc({ ...loc, lat: e.target.value })} className="w-32" />
+          <Input placeholder="Longitude" required type="number" step="any" value={loc.lng} onChange={(e) => setLoc({ ...loc, lng: e.target.value })} className="w-32" />
+          <Input placeholder="Range (m)" required type="number" min={20} max={5000} value={loc.radius_m} onChange={(e) => setLoc({ ...loc, radius_m: e.target.value })} className="w-28" />
+          <Button type="button" variant="outline" onClick={useMyLocation}>Use my location</Button>
+          <Button type="submit">Add</Button>
+        </form>
+        <ul className="divide-y">
+          {locs.map((l) => (
+            <li key={l.id} className="flex items-center justify-between py-2 text-sm">
+              <span><span className="font-medium">{l.name}</span> <span className="text-muted-foreground">· {l.lat.toFixed(4)}, {l.lng.toFixed(4)} · {l.radius_m} m</span></span>
+              <Button variant="ghost" size="sm" onClick={async () => {
+                if (!confirm(`Delete location "${l.name}"?`)) return;
+                const { error } = await supabase.from("work_locations").delete().eq("id", l.id);
+                if (error) toast.error(error.message); else refresh();
+              }}>Delete</Button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-xl font-semibold">Everyone ({q.data?.people.length ?? 0})</h2>
         <Input placeholder="Search name or email" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
@@ -125,7 +181,7 @@ function PeoplePage() {
       <div className="overflow-x-auto rounded-3xl border bg-card shadow-card">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Team</th><th className="px-4 py-3" /></tr>
+            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Team</th><th className="px-4 py-3">Shift</th><th className="px-4 py-3">Locations</th><th className="px-4 py-3" /></tr>
           </thead>
           <tbody>
             {q.data?.people.filter((p) => `${p.full_name} ${p.email}`.toLowerCase().includes(search.toLowerCase())).map((p) => (
@@ -145,6 +201,27 @@ function PeoplePage() {
                     <option value="">No team</option>
                     {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1">
+                    <input type="time" aria-label="Shift start" className={sel} defaultValue={p.shift_start?.slice(0, 5) ?? ""} onBlur={(e) => e.target.value !== (p.shift_start?.slice(0, 5) ?? "") && saveShift(p.id, "shift_start", e.target.value)} />
+                    <span>–</span>
+                    <input type="time" aria-label="Shift end" className={sel} defaultValue={p.shift_end?.slice(0, 5) ?? ""} onBlur={(e) => e.target.value !== (p.shift_end?.slice(0, 5) ?? "") && saveShift(p.id, "shift_end", e.target.value)} />
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  {locs.length === 0 ? <span className="text-xs text-muted-foreground">Add a location first</span> : (
+                    <div className="flex flex-wrap gap-2">
+                      {locs.map((l) => {
+                        const on = !!q.data?.userLocs.some((u) => u.user_id === p.id && u.location_id === l.id);
+                        return (
+                          <label key={l.id} className="flex items-center gap-1 text-xs">
+                            <input type="checkbox" checked={on} onChange={(e) => toggleLoc(p.id, l.id, e.target.checked)} />{l.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Button variant="outline" size="sm" onClick={async () => {
