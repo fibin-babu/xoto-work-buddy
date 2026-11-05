@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { AttachmentLink } from "@/components/AttachmentLink";
 import { TaskTimer } from "@/components/TaskTimer";
 import { cn } from "@/lib/utils";
+import { getFix } from "@/lib/geo";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "My Day — Xoto Workday" }, { name: "description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:title", content: "My Day — Xoto Workday" }, { property: "og:description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
@@ -103,7 +104,7 @@ function MyDay() {
               <Button
                 variant="brand"
                 size="xl"
-                onClick={() => { if (uid) act(() => supabase.from("attendance").insert({ user_id: uid, work_date: date }), "Clocked in"); }}
+                onClick={async () => { if (!uid) return; const f = await getFix(); act(() => supabase.from("attendance").insert({ user_id: uid, work_date: date, in_lat: f?.lat ?? null, in_lng: f?.lng ?? null, in_accuracy: f?.accuracy ?? null }), f ? "Clocked in" : "Clocked in (location unavailable)"); }}
               >
                 <LogIn /> Clock in
               </Button>
@@ -120,9 +121,11 @@ function MyDay() {
                 <Button
                   variant="brand"
                   size="xl"
-                  onClick={() =>
-                    open && act(() => supabase.from("attendance").update({ clock_out: new Date().toISOString() }).eq("id", open.id), "Clocked out — see you tomorrow!")
-                  }
+                  onClick={async () => {
+                    if (!open) return;
+                    const f = await getFix();
+                    act(() => supabase.from("attendance").update({ clock_out: new Date().toISOString(), out_lat: f?.lat ?? null, out_lng: f?.lng ?? null, out_accuracy: f?.accuracy ?? null }).eq("id", open.id), "Clocked out — see you tomorrow!");
+                  }}
                 >
                   <LogOut /> Clock out
                 </Button>
