@@ -152,7 +152,15 @@ function MyDay() {
           )}
         </div>
 
-        <TaskTimer uid={uid} date={date} onSaved={refresh} />
+        {state === "out" ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed bg-card p-8 text-center shadow-card">
+            <LogIn className="h-8 w-8 text-primary" />
+            <h2 className="text-xl font-semibold">Clock in to add tasks</h2>
+            <p className="max-w-xs text-sm text-muted-foreground">Start your day with the Clock in button, then time or log your tasks here.</p>
+          </div>
+        ) : (
+          <TaskTimer uid={uid} date={date} onSaved={refresh} />
+        )}
       </section>
 
 
