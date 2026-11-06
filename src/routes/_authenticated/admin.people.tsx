@@ -15,7 +15,8 @@ export const Route = createFileRoute("/_authenticated/admin/people")({
   component: PeoplePage,
 });
 
-const sel = "h-10 rounded-md border bg-card px-3 text-sm";
+const sel = "h-9 min-w-0 rounded-lg border border-input bg-background pl-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 field-select";
+const timeSel = "h-9 w-[6.5rem] rounded-lg border border-input bg-background px-2 text-sm font-medium tabular-nums text-foreground shadow-sm transition-colors hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30";
 
 function PeoplePage() {
   const { data: me } = useMe();
