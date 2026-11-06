@@ -22,7 +22,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
     queryKey: ["report", from, to],
     queryFn: async () => {
       const [p, t, a, b, k] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, email, team_id").order("full_name"),
+        supabase.from("profiles").select("id, full_name, email, team_id, shift_start").order("full_name"),
         supabase.from("teams").select("id, name, manager_id"),
         supabase.from("attendance").select("*").gte("work_date", from).lte("work_date", to),
         supabase.from("breaks").select("*, attendance!inner(work_date)").gte("attendance.work_date", from).lte("attendance.work_date", to),
