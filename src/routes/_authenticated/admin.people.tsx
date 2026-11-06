@@ -24,7 +24,7 @@ function PeoplePage() {
   const update = useServerFn(updateAccess);
   const reset = useServerFn(resetPassword);
   const [search, setSearch] = useState("");
-  const [f, setF] = useState({ full_name: "", email: "", role: "employee" as Role, team_id: "" });
+  const [f, setF] = useState({ full_name: "", email: "", role: "employee" as Role, team_id: "", shift_start: "09:00", shift_end: "18:00", location_ids: [] as string[] });
   const [teamName, setTeamName] = useState("");
   const [loc, setLoc] = useState({ name: "", lat: "", lng: "", radius_m: "200" });
 
@@ -48,9 +48,9 @@ function PeoplePage() {
   async function addUser(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await create({ data: { ...f, team_id: f.team_id || null, redirect_to: `${window.location.origin}/reset-password` } });
+      await create({ data: { ...f, team_id: f.team_id || null, shift_start: f.shift_start || null, shift_end: f.shift_end || null, redirect_to: `${window.location.origin}/reset-password` } });
       toast.success("Invite sent — they'll set their own password");
-      setF({ full_name: "", email: "", role: "employee", team_id: "" });
+      setF({ full_name: "", email: "", role: "employee", team_id: "", shift_start: "09:00", shift_end: "18:00", location_ids: [] });
       refresh();
     } catch (err: any) {
       toast.error(err?.message ?? "Failed");
@@ -112,6 +112,20 @@ function PeoplePage() {
               <option value="">No team</option>
               {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="w-14 text-muted-foreground">Shift</span>
+            <input type="time" aria-label="New shift start" className={sel} value={f.shift_start} onChange={(e) => setF({ ...f, shift_start: e.target.value })} />
+            <span>–</span>
+            <input type="time" aria-label="New shift end" className={sel} value={f.shift_end} onChange={(e) => setF({ ...f, shift_end: e.target.value })} />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="w-14 text-muted-foreground">Location</span>
+            {locs.length === 0 ? <span className="text-xs text-muted-foreground">Add a work location below first</span> : locs.map((l) => (
+              <label key={l.id} className="flex items-center gap-1">
+                <input type="checkbox" checked={f.location_ids.includes(l.id)} onChange={(e) => setF({ ...f, location_ids: e.target.checked ? [...f.location_ids, l.id] : f.location_ids.filter((x) => x !== l.id) })} />{l.name}
+              </label>
+            ))}
           </div>
           <Button type="submit" variant="brand" className="w-full">Send invite</Button>
         </form>
