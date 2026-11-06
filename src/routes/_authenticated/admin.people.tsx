@@ -15,7 +15,8 @@ export const Route = createFileRoute("/_authenticated/admin/people")({
   component: PeoplePage,
 });
 
-const sel = "h-10 rounded-md border bg-card px-3 text-sm";
+const sel = "h-9 min-w-0 rounded-lg border border-input bg-background pl-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 field-select";
+const timeSel = "h-9 w-[6.5rem] rounded-lg border border-input bg-background px-2 text-sm font-medium tabular-nums text-foreground shadow-sm transition-colors hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30";
 
 function PeoplePage() {
   const { data: me } = useMe();
@@ -115,9 +116,9 @@ function PeoplePage() {
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span className="w-14 text-muted-foreground">Shift</span>
-            <input type="time" aria-label="New shift start" className={sel} value={f.shift_start} onChange={(e) => setF({ ...f, shift_start: e.target.value })} />
-            <span>–</span>
-            <input type="time" aria-label="New shift end" className={sel} value={f.shift_end} onChange={(e) => setF({ ...f, shift_end: e.target.value })} />
+            <input type="time" aria-label="New shift start" className={timeSel} value={f.shift_start} onChange={(e) => setF({ ...f, shift_start: e.target.value })} />
+            <span className="text-muted-foreground">–</span>
+            <input type="time" aria-label="New shift end" className={timeSel} value={f.shift_end} onChange={(e) => setF({ ...f, shift_end: e.target.value })} />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span className="w-14 text-muted-foreground">Location</span>
@@ -202,14 +203,14 @@ function PeoplePage() {
               <tr key={p.id} className="border-b last:border-0">
                 <td className="px-4 py-3"><p className="font-semibold">{p.full_name}</p><p className="text-xs text-muted-foreground">{p.email}</p></td>
                 <td className="px-4 py-3">
-                  <select className={sel} value={roleOf(p.id)} onChange={async (e) => {
+                  <select className={sel + " w-32"} value={roleOf(p.id)} onChange={async (e) => {
                     try { await update({ data: { user_id: p.id, role: e.target.value as Role, team_id: p.team_id } }); refresh(); } catch (err: any) { toast.error(err.message); }
                   }}>
                     <option value="employee">Employee</option><option value="manager">Manager</option><option value="admin">Admin</option>
                   </select>
                 </td>
                 <td className="px-4 py-3">
-                  <select className={sel} value={p.team_id ?? ""} onChange={async (e) => {
+                  <select className={sel + " w-48"} value={p.team_id ?? ""} onChange={async (e) => {
                     try { await update({ data: { user_id: p.id, role: roleOf(p.id), team_id: e.target.value || null } }); refresh(); } catch (err: any) { toast.error(err.message); }
                   }}>
                     <option value="">No team</option>
@@ -218,9 +219,9 @@ function PeoplePage() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
-                    <input type="time" aria-label="Shift start" className={sel} defaultValue={p.shift_start?.slice(0, 5) ?? ""} onBlur={(e) => e.target.value !== (p.shift_start?.slice(0, 5) ?? "") && saveShift(p.id, "shift_start", e.target.value)} />
-                    <span>–</span>
-                    <input type="time" aria-label="Shift end" className={sel} defaultValue={p.shift_end?.slice(0, 5) ?? ""} onBlur={(e) => e.target.value !== (p.shift_end?.slice(0, 5) ?? "") && saveShift(p.id, "shift_end", e.target.value)} />
+                    <input type="time" aria-label="Shift start" className={timeSel} defaultValue={p.shift_start?.slice(0, 5) ?? ""} onBlur={(e) => e.target.value !== (p.shift_start?.slice(0, 5) ?? "") && saveShift(p.id, "shift_start", e.target.value)} />
+                    <span className="text-muted-foreground">–</span>
+                    <input type="time" aria-label="Shift end" className={timeSel} defaultValue={p.shift_end?.slice(0, 5) ?? ""} onBlur={(e) => e.target.value !== (p.shift_end?.slice(0, 5) ?? "") && saveShift(p.id, "shift_end", e.target.value)} />
                   </div>
                 </td>
                 <td className="px-4 py-3">
