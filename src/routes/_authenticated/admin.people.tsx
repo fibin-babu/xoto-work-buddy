@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/admin/people")({
 });
 
 const sel = "h-9 min-w-0 rounded-lg border border-input bg-background pl-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 field-select";
-const timeSel = "h-9 w-[6.5rem] rounded-lg border border-input bg-background px-2 text-sm font-medium tabular-nums text-foreground shadow-sm transition-colors hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30";
+const timeSel = "h-9 w-[8.5rem] rounded-lg border border-input bg-background px-3 text-sm font-medium tabular-nums text-foreground shadow-sm transition-colors hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30";
 
 function PeoplePage() {
   const { data: me } = useMe();
@@ -115,13 +115,13 @@ function PeoplePage() {
             </select>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="w-14 text-muted-foreground">Shift</span>
+            <span className="w-20 shrink-0 text-muted-foreground">Shift</span>
             <input type="time" aria-label="New shift start" className={timeSel} value={f.shift_start} onChange={(e) => setF({ ...f, shift_start: e.target.value })} />
             <span className="text-muted-foreground">–</span>
             <input type="time" aria-label="New shift end" className={timeSel} value={f.shift_end} onChange={(e) => setF({ ...f, shift_end: e.target.value })} />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="w-14 text-muted-foreground">Location</span>
+            <span className="w-20 shrink-0 text-muted-foreground">Location</span>
             {locs.length === 0 ? <span className="text-xs text-muted-foreground">Add a work location below first</span> : locs.map((l) => (
               <label key={l.id} className="flex items-center gap-1">
                 <input type="checkbox" checked={f.location_ids.includes(l.id)} onChange={(e) => setF({ ...f, location_ids: e.target.checked ? [...f.location_ids, l.id] : f.location_ids.filter((x) => x !== l.id) })} />{l.name}
