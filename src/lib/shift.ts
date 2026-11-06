@@ -22,3 +22,19 @@ export function fmtShift(start: string | null | undefined, end: string | null | 
   if (!start || !end) return "No shift";
   return `${start.slice(0, 5)}–${end.slice(0, 5)}`;
 }
+
+/** Minutes after shift start before a clock-in counts as late. */
+export const LATE_GRACE_MIN = 15;
+
+/** True when a clock-in (local time) is more than the grace period after shift start. */
+export function isLateClockIn(shiftStart: string | null | undefined, clockIn: Date | string | null | undefined): boolean {
+  if (!shiftStart || !clockIn) return false;
+  const d = typeof clockIn === "string" ? new Date(clockIn) : clockIn;
+  return d.getHours() * 60 + d.getMinutes() > parseTime(shiftStart) + LATE_GRACE_MIN;
+}
+
+/** Clock-in reminder is due once shift start has passed and the person hasn't clocked in today. */
+export function dueClockInReminder(shiftStart: string | null | undefined, now: Date, clockedInToday: boolean): boolean {
+  if (!shiftStart || clockedInToday) return false;
+  return now.getHours() * 60 + now.getMinutes() >= parseTime(shiftStart);
+}
