@@ -59,6 +59,9 @@ export const createEmployee = createServerFn({ method: "POST" })
         role,
         team_id: z.string().uuid().nullable(),
         redirect_to: z.string().url().max(500),
+        shift_start: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+        shift_end: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+        location_ids: z.array(z.string().uuid()).max(50).optional(),
       })
       .parse(d),
   )
@@ -73,8 +76,11 @@ export const createEmployee = createServerFn({ method: "POST" })
     if (error || !u.user) throw new Error(error?.message ?? "Could not invite user");
     const { error: pe } = await supabaseAdmin
       .from("profiles")
-      .insert({ id: u.user.id, email: data.email, full_name: data.full_name, team_id: data.team_id });
+      .insert({ id: u.user.id, email: data.email, full_name: data.full_name, team_id: data.team_id, shift_start: data.shift_start ?? null, shift_end: data.shift_end ?? null });
     if (pe) throw new Error(pe.message);
+    if (data.location_ids?.length) {
+      await supabaseAdmin.from("user_locations").insert(data.location_ids.map((location_id) => ({ user_id: u.user.id, location_id })));
+    }
     await supabaseAdmin.from("user_roles").insert({ user_id: u.user.id, role: data.role });
     if (data.role === "manager" && data.team_id) {
       await supabaseAdmin.from("teams").update({ manager_id: u.user.id }).eq("id", data.team_id);

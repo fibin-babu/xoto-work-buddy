@@ -6,6 +6,7 @@ import { breakMinutes, fmtDuration, fmtTime, todayStr, workedMinutes } from "@/l
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AttachmentLink } from "@/components/AttachmentLink";
+import { isLateClockIn } from "@/lib/shift";
 import { cn } from "@/lib/utils";
 import { ReportCharts } from "@/components/ReportCharts";
 
@@ -21,7 +22,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
     queryKey: ["report", from, to],
     queryFn: async () => {
       const [p, t, a, b, k] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, email, team_id").order("full_name"),
+        supabase.from("profiles").select("id, full_name, email, team_id, shift_start").order("full_name"),
         supabase.from("teams").select("id, name, manager_id"),
         supabase.from("attendance").select("*").gte("work_date", from).lte("work_date", to),
         supabase.from("breaks").select("*, attendance!inner(work_date)").gte("attendance.work_date", from).lte("attendance.work_date", to),
@@ -44,6 +45,9 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
         const brk = q.data.breaks.filter((x) => x.user_id === p.id);
         const tasks = q.data.tasks.filter((x) => x.user_id === p.id);
         const open = att.some((x) => !x.clock_out);
+        const firstByDay = new Map<string, string>();
+        att.forEach((x) => { if (!firstByDay.has(x.work_date)) firstByDay.set(x.work_date, x.clock_in); });
+        const lateDays = [...firstByDay.values()].filter((ci) => isLateClockIn(p.shift_start, ci)).length;
         return {
           ...p,
           team: p.team_id ? teamName.get(p.team_id) ?? "—" : "—",
@@ -58,6 +62,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
           tasks,
           hours: tasks.reduce((s, x) => s + Number(x.hours), 0),
           days: new Set(att.map((x) => x.work_date)).size,
+          lateDays,
         };
       });
   }, [q.data, team, excludeUserId, managerId]);
@@ -68,12 +73,13 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
     worked: rows.reduce((s, r) => s + r.worked, 0),
     tasks: rows.reduce((s, r) => s + r.tasks.length, 0),
     hours: rows.reduce((s, r) => s + r.hours, 0),
+    late: rows.filter((r) => r.lateDays > 0).length,
   };
 
   function exportCsv() {
-    const lines = [["Name", "Email", "Team", "Days", "First in", "Last out", "Worked (min)", "Break (min)", "Breaks", "Tasks", "Task hours"]];
+    const lines = [["Name", "Email", "Team", "Days", "First in", "Last out", "Worked (min)", "Break (min)", "Breaks", "Tasks", "Task hours", "Late days"]];
     rows.forEach((r) =>
-      lines.push([r.full_name, r.email, r.team, String(r.days), r.firstIn ?? "", r.lastOut ?? "", String(Math.round(r.worked)), String(Math.round(r.breaks)), String(r.breakCount), String(r.tasks.length), r.hours.toFixed(2)]),
+      lines.push([r.full_name, r.email, r.team, String(r.days), r.firstIn ?? "", r.lastOut ?? "", String(Math.round(r.worked)), String(Math.round(r.breaks)), String(r.breakCount), String(r.tasks.length), r.hours.toFixed(2), String(r.lateDays)]),
     );
     lines.push([]);
     lines.push(["Task date", "Name", "Title", "Description", "Hours", "Attachment"]);
@@ -120,11 +126,12 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
         <Metric label="People" value={String(rows.length)} />
         <Metric label="Present" value={`${totals.present}`} hint={`${totals.working} working now`} />
         <Metric label="Total time" value={fmtDuration(totals.worked)} />
         <Metric label="Tasks logged" value={String(totals.tasks)} />
+        <Metric label="Late clock-ins" value={String(totals.late)} hint="15+ min after shift start" />
         <Metric label="Task hours" value={`${totals.hours.toFixed(1)}h`} />
       </div>
 
@@ -168,7 +175,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
                       {r.status === "working" ? "Working" : r.status === "done" ? "Clocked out" : "No record"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.firstIn)}<SiteMark v={r.inSite} /></td>
+                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.firstIn)}<SiteMark v={r.inSite} />{r.lateDays > 0 && <span className="ml-1.5 rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-semibold text-destructive">Late{r.days > 1 ? ` ×${r.lateDays}` : ""}</span>}</td>
                   <td className="px-4 py-3 tabular-nums">{fmtTime(r.lastOut)}<SiteMark v={r.outSite} /></td>
                   <td className="px-4 py-3 font-semibold tabular-nums">{fmtDuration(r.worked)}</td>
                   <td className="px-4 py-3 tabular-nums">{fmtDuration(r.breaks)} <span className="text-muted-foreground">({r.breakCount})</span></td>
