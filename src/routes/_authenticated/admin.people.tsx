@@ -8,6 +8,8 @@ import { createEmployee, resetPassword, updateAccess } from "@/lib/admin.functio
 import { useMe, type Role } from "@/lib/use-me";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MapPin } from "lucide-react";
 import { getFix } from "@/lib/geo";
 
 export const Route = createFileRoute("/_authenticated/admin/people")({
@@ -28,6 +30,7 @@ function PeoplePage() {
   const [f, setF] = useState({ full_name: "", email: "", role: "employee" as Role, team_id: "", shift_start: "09:00", shift_end: "18:00", location_ids: [] as string[] });
   const [teamName, setTeamName] = useState("");
   const [loc, setLoc] = useState({ name: "", lat: "", lng: "", radius_m: "200" });
+  const [savingLocation, setSavingLocation] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ["people"],
@@ -85,11 +88,20 @@ function PeoplePage() {
     if (error) toast.error(error.message); else refresh();
   }
 
-  async function toggleLoc(user_id: string, location_id: string, on: boolean) {
-    const { error } = on
-      ? await supabase.from("user_locations").insert({ user_id, location_id })
-      : await supabase.from("user_locations").delete().eq("user_id", user_id).eq("location_id", location_id);
-    if (error) toast.error(error.message); else refresh();
+  async function saveLocation(user_id: string, location_id: string) {
+    if (savingLocation) return;
+    setSavingLocation(user_id);
+    try {
+      const { error } = location_id
+        ? await supabase.from("user_locations").upsert({ user_id, location_id }, { onConflict: "user_id" })
+        : await supabase.from("user_locations").delete().eq("user_id", user_id);
+      if (error) throw error;
+      await refresh();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Couldn't update location");
+    } finally {
+      setSavingLocation(null);
+    }
   }
 
   const locs = q.data?.locs ?? [];
@@ -114,19 +126,22 @@ function PeoplePage() {
               {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="w-20 shrink-0 text-muted-foreground">Shift</span>
-            <input type="time" aria-label="New shift start" className={timeSel} value={f.shift_start} onChange={(e) => setF({ ...f, shift_start: e.target.value })} />
-            <span className="text-muted-foreground">–</span>
-            <input type="time" aria-label="New shift end" className={timeSel} value={f.shift_end} onChange={(e) => setF({ ...f, shift_end: e.target.value })} />
+          <div className="space-y-2 text-sm">
+            <span className="block text-xs font-medium text-muted-foreground">Shift</span>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+              <input type="time" aria-label="New shift start" className={timeSel + " w-full min-w-0"} value={f.shift_start} onChange={(e) => setF({ ...f, shift_start: e.target.value })} />
+              <span className="text-muted-foreground">–</span>
+              <input type="time" aria-label="New shift end" className={timeSel + " w-full min-w-0"} value={f.shift_end} onChange={(e) => setF({ ...f, shift_end: e.target.value })} />
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="w-20 shrink-0 text-muted-foreground">Location</span>
-            {locs.length === 0 ? <span className="text-xs text-muted-foreground">Add a work location below first</span> : locs.map((l) => (
-              <label key={l.id} className="flex items-center gap-1">
-                <input type="checkbox" checked={f.location_ids.includes(l.id)} onChange={(e) => setF({ ...f, location_ids: e.target.checked ? [...f.location_ids, l.id] : f.location_ids.filter((x) => x !== l.id) })} />{l.name}
-              </label>
-            ))}
+          <div className="space-y-2 text-sm">
+            <span className="block text-xs font-medium text-muted-foreground">Work location</span>
+            <Select value={f.location_ids[0] ?? "unassigned"} onValueChange={(value) => setF({ ...f, location_ids: value === "unassigned" ? [] : [value] })} disabled={locs.length === 0}>
+              <SelectTrigger aria-label="New person work location" className="h-10 bg-background">
+                <span className="flex min-w-0 items-center gap-2"><MapPin className="h-4 w-4 shrink-0 text-muted-foreground" /><SelectValue placeholder="Choose location" /></span>
+              </SelectTrigger>
+              <SelectContent><SelectItem value="unassigned">No location assigned</SelectItem>{locs.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <Button type="submit" variant="brand" className="w-full">Send invite</Button>
         </form>
@@ -196,7 +211,7 @@ function PeoplePage() {
       <div className="overflow-x-auto rounded-3xl border bg-card shadow-card">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Team</th><th className="px-4 py-3">Shift</th><th className="px-4 py-3">Locations</th><th className="px-4 py-3" /></tr>
+            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Team</th><th className="px-4 py-3">Shift</th><th className="px-4 py-3">Work location</th><th className="px-4 py-3" /></tr>
           </thead>
           <tbody>
             {q.data?.people.filter((p) => `${p.full_name} ${p.email}`.toLowerCase().includes(search.toLowerCase())).map((p) => (
@@ -225,18 +240,12 @@ function PeoplePage() {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  {locs.length === 0 ? <span className="text-xs text-muted-foreground">Add a location first</span> : (
-                    <div className="flex flex-wrap gap-2">
-                      {locs.map((l) => {
-                        const on = !!q.data?.userLocs.some((u) => u.user_id === p.id && u.location_id === l.id);
-                        return (
-                          <label key={l.id} className="flex items-center gap-1 text-xs">
-                            <input type="checkbox" checked={on} onChange={(e) => toggleLoc(p.id, l.id, e.target.checked)} />{l.name}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <Select value={q.data?.userLocs.find((u) => u.user_id === p.id)?.location_id ?? "unassigned"} onValueChange={(value) => saveLocation(p.id, value === "unassigned" ? "" : value)} disabled={locs.length === 0 || savingLocation !== null}>
+                    <SelectTrigger aria-label={`Work location for ${p.full_name || p.email}`} className="w-56 bg-background">
+                      <span className="flex min-w-0 items-center gap-2"><MapPin className="h-4 w-4 shrink-0 text-muted-foreground" /><SelectValue /></span>
+                    </SelectTrigger>
+                    <SelectContent><SelectItem value="unassigned">No location assigned</SelectItem>{locs.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+                  </Select>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Button variant="outline" size="sm" onClick={async () => {
