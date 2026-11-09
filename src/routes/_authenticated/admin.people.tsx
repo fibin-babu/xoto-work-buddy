@@ -138,7 +138,7 @@ function PeoplePage() {
             <span className="block text-xs font-medium text-muted-foreground">Work location</span>
             <Select value={f.location_ids[0] ?? "unassigned"} onValueChange={(value) => setF({ ...f, location_ids: value === "unassigned" ? [] : [value] })} disabled={locs.length === 0}>
               <SelectTrigger aria-label="New person work location" className="h-10 bg-background">
-                <span className="flex min-w-0 items-center gap-2"><MapPin className="h-4 w-4 shrink-0 text-muted-foreground" /><SelectValue placeholder="Choose location" /></span>
+                <div className="flex min-w-0 items-center gap-2 [&>span]:truncate"><MapPin className="h-4 w-4 shrink-0 text-muted-foreground" /><SelectValue placeholder="Choose location" /></div>
               </SelectTrigger>
               <SelectContent><SelectItem value="unassigned">No location assigned</SelectItem>{locs.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
             </Select>
@@ -242,7 +242,7 @@ function PeoplePage() {
                 <td className="px-4 py-3">
                   <Select value={q.data?.userLocs.find((u) => u.user_id === p.id)?.location_id ?? "unassigned"} onValueChange={(value) => saveLocation(p.id, value === "unassigned" ? "" : value)} disabled={locs.length === 0 || savingLocation !== null}>
                     <SelectTrigger aria-label={`Work location for ${p.full_name || p.email}`} className="w-56 bg-background">
-                      <span className="flex min-w-0 items-center gap-2"><MapPin className="h-4 w-4 shrink-0 text-muted-foreground" /><SelectValue /></span>
+                      <div className="flex min-w-0 items-center gap-2 [&>span]:truncate"><MapPin className="h-4 w-4 shrink-0 text-muted-foreground" /><SelectValue /></div>
                     </SelectTrigger>
                     <SelectContent><SelectItem value="unassigned">No location assigned</SelectItem>{locs.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
                   </Select>
