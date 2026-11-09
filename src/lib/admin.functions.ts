@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { personLocationIds } from "@/lib/work-location";
 
 const email = z
   .string()
@@ -61,7 +62,7 @@ export const createEmployee = createServerFn({ method: "POST" })
         redirect_to: z.string().url().max(500),
         shift_start: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
         shift_end: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
-        location_ids: z.array(z.string().uuid()).max(50).optional(),
+        location_ids: personLocationIds.optional(),
       })
       .parse(d),
   )
@@ -79,7 +80,8 @@ export const createEmployee = createServerFn({ method: "POST" })
       .insert({ id: u.user.id, email: data.email, full_name: data.full_name, team_id: data.team_id, shift_start: data.shift_start ?? null, shift_end: data.shift_end ?? null });
     if (pe) throw new Error(pe.message);
     if (data.location_ids?.length) {
-      await supabaseAdmin.from("user_locations").insert(data.location_ids.map((location_id) => ({ user_id: u.user.id, location_id })));
+      const { error: le } = await supabaseAdmin.from("user_locations").insert(data.location_ids.map((location_id) => ({ user_id: u.user.id, location_id })));
+      if (le) throw new Error(le.message);
     }
     await supabaseAdmin.from("user_roles").insert({ user_id: u.user.id, role: data.role });
     if (data.role === "manager" && data.team_id) {

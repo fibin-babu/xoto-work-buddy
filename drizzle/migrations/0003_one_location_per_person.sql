@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX user_locations_one_per_user ON public.user_locations (user_id);

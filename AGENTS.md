@@ -11,3 +11,4 @@
 
 - Keep ongoing timer drafts in user-scoped browser storage and their transitions in `src/lib/task-timing.ts`; this preserves paused time across navigation without treating unfinished tasks as completed reports.
 - Complete timed tasks with their stable UUID and an ignore-duplicate insert; this makes repeated clicks and uncertain network retries safe.
+- Enforce work-location cardinality with a unique user index and shared onboarding validation; replace assignments atomically with an upsert so location changes cannot leave partial assignments.
