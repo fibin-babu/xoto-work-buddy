@@ -9,6 +9,8 @@ import { AttachmentLink } from "@/components/AttachmentLink";
 import { isLateClockIn } from "@/lib/shift";
 import { cn } from "@/lib/utils";
 import { ReportCharts } from "@/components/ReportCharts";
+import { attendanceColumns, locationActionLabel } from "@/lib/location-review";
+import { LocationMap } from "@/components/LocationMap";
 
 type Props = { title: string; subtitle?: string; teamFilter?: boolean; excludeUserId?: string; managerId?: string; charts?: boolean };
 
@@ -21,14 +23,17 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
   const q = useQuery({
     queryKey: ["report", from, to],
     queryFn: async () => {
-      const [p, t, a, b, k] = await Promise.all([
+      const [p, t, a, b, k, locations] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, team_id, shift_start").order("full_name"),
         supabase.from("teams").select("id, name, manager_id"),
-        supabase.from("attendance").select("*").gte("work_date", from).lte("work_date", to),
+        supabase.from("attendance").select(attendanceColumns).gte("work_date", from).lte("work_date", to),
         supabase.from("breaks").select("*, attendance!inner(work_date)").gte("attendance.work_date", from).lte("attendance.work_date", to),
         supabase.from("tasks").select("*").gte("work_date", from).lte("work_date", to).order("created_at"),
+        supabase.from("location_events").select("*").gte("work_date", from).lte("work_date", to).order("captured_at"),
       ]);
-      return { profiles: p.data ?? [], teams: t.data ?? [], att: a.data ?? [], breaks: b.data ?? [], tasks: k.data ?? [] };
+      const failed = [p, t, a, b, k, locations].find((result) => result.error);
+      if (failed?.error) throw failed.error;
+      return { profiles: p.data ?? [], teams: t.data ?? [], att: a.data ?? [], breaks: b.data ?? [], tasks: k.data ?? [], locations: locations.data ?? [] };
     },
   });
 
@@ -52,8 +57,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
           ...p,
           team: p.team_id ? teamName.get(p.team_id) ?? "—" : "—",
           firstIn: att[0]?.clock_in ?? null,
-          inSite: att[0]?.in_onsite ?? null,
-          outSite: open ? null : att[att.length - 1]?.out_onsite ?? null,
+          locations: q.data.locations.filter((event) => event.user_id === p.id),
           lastOut: open ? null : att[att.length - 1]?.clock_out ?? null,
           status: !att.length ? "absent" : open ? "working" : "done",
           worked: workedMinutes(att),
@@ -84,6 +88,8 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
     lines.push([]);
     lines.push(["Task date", "Name", "Title", "Description", "Hours", "Attachment"]);
     rows.forEach((r) => r.tasks.forEach((t) => lines.push([t.work_date, r.full_name, t.title, t.description ?? "", String(t.hours), t.attachment_name ?? ""])));
+    lines.push([], ["Location date", "Name", "Action", "Time", "Latitude", "Longitude", "Accuracy (m)", "Assigned location", "Distance (m)", "Review"]);
+    rows.forEach((r) => r.locations.forEach((event) => lines.push([event.work_date, r.full_name, event.action, event.captured_at, String(event.lat ?? ""), String(event.lng ?? ""), String(event.accuracy ?? ""), event.expected_name ?? "", String(event.distance_m ?? ""), event.review_status])));
     const csv = lines.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
@@ -136,6 +142,8 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
       </div>
 
       {charts && q.data && <ReportCharts rows={rows} att={q.data.att} tasks={q.data.tasks} from={from} to={to} />}
+      {q.isError && <p role="alert" className="text-sm text-destructive">Couldn't load reports. Please try again.</p>}
+      {q.data && <p className="text-sm text-muted-foreground"><span className="font-semibold text-destructive">{rows.reduce((sum, r) => sum + r.locations.filter((event) => event.review_status === "mismatch").length, 0)} location mismatches</span> · {rows.reduce((sum, r) => sum + r.locations.filter((event) => event.review_status === "unavailable").length, 0)} location unavailable</p>}
 
       <div className="overflow-x-auto rounded-3xl border bg-card shadow-card">
         <table className="w-full text-sm">
@@ -175,16 +183,23 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
                       {r.status === "working" ? "Working" : r.status === "done" ? "Clocked out" : "No record"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.firstIn)}<SiteMark v={r.inSite} />{r.lateDays > 0 && <span className="ml-1.5 rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-semibold text-destructive">Late{r.days > 1 ? ` ×${r.lateDays}` : ""}</span>}</td>
-                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.lastOut)}<SiteMark v={r.outSite} /></td>
+                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.firstIn)}<SiteMark v={r.locations.find((event) => event.action === "clock_in")?.review_status} />{r.lateDays > 0 && <span className="ml-1.5 rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-semibold text-destructive">Late{r.days > 1 ? ` ×${r.lateDays}` : ""}</span>}</td>
+                  <td className="px-4 py-3 tabular-nums">{fmtTime(r.lastOut)}<SiteMark v={r.locations.filter((event) => event.action === "clock_out").at(-1)?.review_status} /></td>
                   <td className="px-4 py-3 font-semibold tabular-nums">{fmtDuration(r.worked)}</td>
-                  <td className="px-4 py-3 tabular-nums">{fmtDuration(r.breaks)} <span className="text-muted-foreground">({r.breakCount})</span></td>
+                  <td className="px-4 py-3 tabular-nums">{fmtDuration(r.breaks)} <span className="text-muted-foreground">({r.breakCount})</span>{r.locations.some((event) => event.action.startsWith("break_") && event.review_status === "mismatch") && <SiteMark v="mismatch" />}</td>
                   <td className="px-4 py-3 tabular-nums">{r.tasks.length} · {r.hours.toFixed(1)}h</td>
                   <td className="px-4 py-3"><ChevronDown className={cn("h-4 w-4 transition-transform", openRow === r.id && "rotate-180")} /></td>
                 </tr>
                 {openRow === r.id && (
                   <tr className="border-b bg-muted/30">
                     <td colSpan={9} className="px-6 py-4">
+                      <h3 className="mb-2 font-semibold">Location activity</h3>
+                      {!r.locations.length && <p className="mb-4 text-sm text-muted-foreground">No location checks recorded in this period.</p>}
+                      <ul className="mb-5 divide-y">{r.locations.map((event) => <li key={event.id} className="py-3 text-sm">
+                        <div className="flex flex-wrap items-center gap-2"><span className="font-medium">{locationActionLabel[event.action as keyof typeof locationActionLabel] ?? event.action}</span><span className="text-muted-foreground">{event.work_date} · {fmtTime(event.captured_at)}</span><SiteMark v={event.review_status} /></div>
+                        <p className="mt-1 text-xs text-muted-foreground">Assigned: {event.expected_name ?? "No location"}{event.distance_m !== null ? ` · ${Math.round(event.distance_m)} m away · allowed ${event.radius_m} m` : ""}{event.accuracy !== null ? ` · GPS accuracy ±${Math.round(event.accuracy)} m` : ""}</p>
+                        {event.lat !== null && event.lng !== null && <details className="mt-2"><summary className="cursor-pointer text-primary">{event.lat.toFixed(5)}, {event.lng.toFixed(5)} · View map</summary><div className="mt-2 max-w-lg"><LocationMap lat={event.lat} lng={event.lng} title={`${r.full_name} ${event.action}`} /></div></details>}
+                      </li>)}</ul>
                       {r.tasks.length === 0 ? (
                         <p className="text-muted-foreground">No tasks logged in this period.</p>
                       ) : (
@@ -224,9 +239,7 @@ function Metric({ label, value, hint, accent }: { label: string; value: string; 
   );
 }
 
-function SiteMark({ v }: { v: boolean | null }) {
-  if (v === null) return null;
-  return v
-    ? <span className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground">On-site</span>
-    : <span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">Off-site</span>;
+function SiteMark({ v }: { v?: string }) {
+  if (!v) return null;
+  return <span className={cn("ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold", v === "mismatch" ? "bg-destructive/15 text-destructive" : v === "match" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground")}>{v === "match" ? "Match" : v === "mismatch" ? "Mismatch" : v === "unavailable" ? "Unavailable" : "Unassigned"}</span>;
 }
