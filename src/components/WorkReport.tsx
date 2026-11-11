@@ -239,7 +239,7 @@ function Metric({ label, value, hint, accent }: { label: string; value: string; 
   );
 }
 
-function SiteMark({ v }: { v?: string }) {
+function SiteMark({ v }: { v: string | undefined }) {
   if (!v) return null;
   return <span className={cn("ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold", v === "mismatch" ? "bg-destructive/15 text-destructive" : v === "match" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground")}>{v === "match" ? "Match" : v === "mismatch" ? "Mismatch" : v === "unavailable" ? "Unavailable" : "Unassigned"}</span>;
 }
