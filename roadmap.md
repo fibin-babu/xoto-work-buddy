@@ -1,4 +1,7 @@
 # Task workflow
+- [ ] Add Google Maps selection for each person and onboarding.
+- [ ] Ask for location at clock-in, break start/end, and clock-out; capture private mismatch reports.
+- [ ] Rename Admin to Organization and People & Teams to Configuration; test access and attendance flow.
 - [x] Replace onboarding and person location checkboxes with a single clean dropdown.
 - [x] Enforce and test single-location assignment and verify it in the signed-in view.
 - [ ] Show XO on mobile sign-in and adapt signed-in eye tracking and peek animations for touch.
