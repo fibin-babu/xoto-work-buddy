@@ -8,7 +8,7 @@ export function getFix(timeoutMs = 8000): Promise<Fix> {
     navigator.geolocation.getCurrentPosition(
       (p) => { clearTimeout(timer); resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }); },
       () => { clearTimeout(timer); resolve(null); },
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 },
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
     );
   });
 }

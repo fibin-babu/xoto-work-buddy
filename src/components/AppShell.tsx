@@ -24,8 +24,8 @@ export function AppShell() {
   const links = [
     { to: "/dashboard", label: "My Day", icon: Sun, show: true },
     { to: "/team", label: "My Team", icon: Users, show: me?.role === "manager" || !!me?.leadsTeam },
-    { to: "/admin", label: "Admin", icon: LayoutDashboard, show: me?.role === "admin" },
-    { to: "/admin/people", label: "People & Teams", icon: UserCog, show: me?.role === "admin" },
+    { to: "/admin", label: "Organization", icon: LayoutDashboard, show: me?.role === "admin" },
+    { to: "/admin/people", label: "Configuration", icon: UserCog, show: me?.role === "admin" },
   ] as const;
 
   return (
