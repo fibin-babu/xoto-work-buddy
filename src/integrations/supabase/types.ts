@@ -82,23 +82,41 @@ export type Database = {
       breaks: {
         Row: {
           attendance_id: string
+          end_accuracy: number | null
           end_at: string | null
+          end_lat: number | null
+          end_lng: number | null
           id: string
+          start_accuracy: number | null
           start_at: string
+          start_lat: number | null
+          start_lng: number | null
           user_id: string
         }
         Insert: {
           attendance_id: string
+          end_accuracy?: number | null
           end_at?: string | null
+          end_lat?: number | null
+          end_lng?: number | null
           id?: string
+          start_accuracy?: number | null
           start_at?: string
+          start_lat?: number | null
+          start_lng?: number | null
           user_id: string
         }
         Update: {
           attendance_id?: string
+          end_accuracy?: number | null
           end_at?: string | null
+          end_lat?: number | null
+          end_lng?: number | null
           id?: string
+          start_accuracy?: number | null
           start_at?: string
+          start_lat?: number | null
+          start_lng?: number | null
           user_id?: string
         }
         Relationships: [
@@ -111,6 +129,85 @@ export type Database = {
           },
           {
             foreignKeyName: "breaks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_events: {
+        Row: {
+          accuracy: number | null
+          action: string
+          attendance_id: string
+          break_id: string | null
+          captured_at: string
+          distance_m: number | null
+          expected_lat: number | null
+          expected_lng: number | null
+          expected_name: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          radius_m: number | null
+          review_status: string
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          accuracy?: number | null
+          action: string
+          attendance_id: string
+          break_id?: string | null
+          captured_at?: string
+          distance_m?: number | null
+          expected_lat?: number | null
+          expected_lng?: number | null
+          expected_name?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          radius_m?: number | null
+          review_status: string
+          user_id: string
+          work_date: string
+        }
+        Update: {
+          accuracy?: number | null
+          action?: string
+          attendance_id?: string
+          break_id?: string | null
+          captured_at?: string
+          distance_m?: number | null
+          expected_lat?: number | null
+          expected_lng?: number | null
+          expected_name?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          radius_m?: number | null
+          review_status?: string
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_events_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "attendance"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_events_break_id_fkey"
+            columns: ["break_id"]
+            isOneToOne: false
+            referencedRelation: "breaks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_events_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

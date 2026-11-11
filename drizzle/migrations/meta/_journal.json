@@ -29,6 +29,13 @@
       "when": 1794221685985,
       "tag": "0003_one_location_per_person",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794386301824,
+      "tag": "0004_private_person_location_events",
+      "breakpoints": true
     }
   ]
 }
