@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin } from "lucide-react";
 import { getFix } from "@/lib/geo";
+import { PersonLocationPicker } from "@/components/PersonLocationPicker";
 
 export const Route = createFileRoute("/_authenticated/admin/people")({
-  head: () => ({ meta: [{ title: "People & Teams — Xoto Workday" }, { name: "description", content: "Manage employee accounts, roles, and team assignments." }, { property: "og:title", content: "People & Teams — Xoto Workday" }, { property: "og:description", content: "Manage employee accounts, roles, and team assignments." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
+  head: () => ({ meta: [{ title: "Configuration — Xoto Workday" }, { name: "description", content: "Configure employee accounts, shifts, personal work locations, and teams." }, { property: "og:title", content: "Configuration — Xoto Workday" }, { property: "og:description", content: "Configure employee accounts, shifts, personal work locations, and teams." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: PeoplePage,
 });
 
@@ -99,6 +100,7 @@ function PeoplePage() {
       await refresh();
     } catch (err: any) {
       toast.error(err?.message ?? "Couldn't update location");
+      throw err;
     } finally {
       setSavingLocation(null);
     }
@@ -110,7 +112,7 @@ function PeoplePage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold">People & Teams</h1>
+      <h1 className="text-3xl font-bold">Configuration</h1>
       <div className="grid gap-6 lg:grid-cols-2">
         <form onSubmit={addUser} className="space-y-3 rounded-3xl border bg-card p-6 shadow-card">
           <h2 className="text-xl font-semibold">Create account</h2>
@@ -142,6 +144,7 @@ function PeoplePage() {
               </SelectTrigger>
               <SelectContent><SelectItem value="unassigned">No location assigned</SelectItem>{locs.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
             </Select>
+            <PersonLocationPicker label="New person's work location" onSelect={async (id) => { setF((current) => ({ ...current, location_ids: [id] })); await refresh(); }} />
           </div>
           <Button type="submit" variant="brand" className="w-full">Send invite</Button>
         </form>
@@ -181,7 +184,6 @@ function PeoplePage() {
 
       <div className="space-y-3 rounded-3xl border bg-card p-6 shadow-card">
         <h2 className="text-xl font-semibold">Work locations</h2>
-        <p className="text-sm text-muted-foreground">People assigned to a location are checked against it when they clock in and out.</p>
         <form onSubmit={addLocation} className="flex flex-wrap gap-2">
           <Input placeholder="Name (e.g. Dubai office)" required value={loc.name} onChange={(e) => setLoc({ ...loc, name: e.target.value })} className="min-w-48 flex-1" />
           <Input placeholder="Latitude" required type="number" step="any" value={loc.lat} onChange={(e) => setLoc({ ...loc, lat: e.target.value })} className="w-32" />
@@ -240,12 +242,15 @@ function PeoplePage() {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <Select value={q.data?.userLocs.find((u) => u.user_id === p.id)?.location_id ?? "unassigned"} onValueChange={(value) => saveLocation(p.id, value === "unassigned" ? "" : value)} disabled={locs.length === 0 || savingLocation !== null}>
+                  <div className="space-y-2">
+                  <Select value={q.data?.userLocs.find((u) => u.user_id === p.id)?.location_id ?? "unassigned"} onValueChange={(value) => { void saveLocation(p.id, value === "unassigned" ? "" : value).catch(() => undefined); }} disabled={locs.length === 0 || savingLocation !== null}>
                     <SelectTrigger aria-label={`Work location for ${p.full_name || p.email}`} className="w-56 bg-background">
                       <div className="flex min-w-0 items-center gap-2 [&>span]:truncate"><MapPin className="h-4 w-4 shrink-0 text-muted-foreground" /><SelectValue /></div>
                     </SelectTrigger>
                     <SelectContent><SelectItem value="unassigned">No location assigned</SelectItem>{locs.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
                   </Select>
+                  <PersonLocationPicker label={`Work location for ${p.full_name || p.email}`} onSelect={(id) => saveLocation(p.id, id)} />
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Button variant="outline" size="sm" onClick={async () => {

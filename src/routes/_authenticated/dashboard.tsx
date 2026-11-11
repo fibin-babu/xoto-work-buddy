@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Coffee, LogIn, LogOut, Play, Trash2 } from "lucide-react";
+import { Coffee, LogIn, LogOut, MapPin, Play, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/use-me";
 import { breakMinutes, fmtDuration, fmtTime, todayStr, workedMinutes } from "@/lib/time";
@@ -11,6 +11,8 @@ import { AttachmentLink } from "@/components/AttachmentLink";
 import { TaskTimer } from "@/components/TaskTimer";
 import { cn } from "@/lib/utils";
 import { getFix } from "@/lib/geo";
+import { attendanceColumns, locationActionLabel, type LocationAction } from "@/lib/location-review";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "My Day — Xoto Workday" }, { name: "description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:title", content: "My Day — Xoto Workday" }, { property: "og:description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
@@ -32,6 +34,9 @@ function MyDay() {
   const now = useNow();
   const date = todayStr();
   const uid = me?.id;
+  const [locationAction, setLocationAction] = useState<LocationAction | null>(null);
+  const [locating, setLocating] = useState(false);
+  const actionLock = useRef(false);
 
   const day = useQuery({
     queryKey: ["myday", uid, date],
@@ -39,7 +44,7 @@ function MyDay() {
     queryFn: async () => {
       if (!uid) return { att: [], breaks: [], tasks: [] };
       const [att, brk, tasks] = await Promise.all([
-        supabase.from("attendance").select("*").eq("user_id", uid).eq("work_date", date).order("clock_in"),
+        supabase.from("attendance").select(attendanceColumns).eq("user_id", uid).eq("work_date", date).order("clock_in"),
         supabase.from("breaks").select("*, attendance!inner(work_date)").eq("user_id", uid).eq("attendance.work_date", date).order("start_at"),
         supabase.from("tasks").select("*").eq("user_id", uid).eq("work_date", date).order("created_at", { ascending: false }),
       ]);
@@ -65,6 +70,28 @@ function MyDay() {
   }
 
   const state = !open ? "out" : openBreak ? "break" : "in";
+
+  async function captureAction(share: boolean) {
+    if (!uid || !locationAction || actionLock.current) return;
+    actionLock.current = true;
+    setLocating(true);
+    try {
+      const fix = share ? await getFix() : null;
+      const lat = fix?.lat ?? null, lng = fix?.lng ?? null, accuracy = fix?.accuracy ?? null;
+      const action = locationAction;
+      let result;
+      if (action === "clock_in" && !open) result = await supabase.from("attendance").insert({ user_id: uid, work_date: date, in_lat: lat, in_lng: lng, in_accuracy: accuracy });
+      else if (action === "break_start" && open && !openBreak) result = await supabase.from("breaks").insert({ user_id: uid, attendance_id: open.id, start_lat: lat, start_lng: lng, start_accuracy: accuracy });
+      else if (action === "break_end" && openBreak) result = await supabase.from("breaks").update({ end_at: new Date().toISOString(), end_lat: lat, end_lng: lng, end_accuracy: accuracy }).eq("id", openBreak.id).is("end_at", null);
+      else if (action === "clock_out" && open && !openBreak) result = await supabase.from("attendance").update({ clock_out: new Date().toISOString(), out_lat: lat, out_lng: lng, out_accuracy: accuracy }).eq("id", open.id).is("clock_out", null);
+      else throw new Error("Your attendance changed. Please refresh and try again.");
+      if (result.error) throw result.error;
+      await Promise.all([refresh(), qc.invalidateQueries({ queryKey: ["myday-open"] }), qc.invalidateQueries({ queryKey: ["report"] })]);
+      setLocationAction(null);
+      toast.success(action === "clock_in" ? "Clocked in" : action === "clock_out" ? "Clocked out — see you tomorrow!" : action === "break_start" ? "Break started" : "Welcome back");
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't save attendance"); }
+    finally { setLocating(false); actionLock.current = false; }
+  }
 
   return (
     <div className="space-y-8">
@@ -104,7 +131,8 @@ function MyDay() {
               <Button
                 variant="brand"
                 size="xl"
-                onClick={async () => { if (!uid) return; const f = await getFix(); act(() => supabase.from("attendance").insert({ user_id: uid, work_date: date, in_lat: f?.lat ?? null, in_lng: f?.lng ?? null, in_accuracy: f?.accuracy ?? null }), f ? "Clocked in" : "Clocked in (location unavailable)"); }}
+                disabled={day.isLoading || locating}
+                onClick={() => setLocationAction("clock_in")}
               >
                 <LogIn /> Clock in
               </Button>
@@ -114,18 +142,16 @@ function MyDay() {
                 <Button
                   variant="secondary"
                   size="xl"
-                  onClick={() => { if (uid && open) act(() => supabase.from("breaks").insert({ user_id: uid, attendance_id: open.id }), "Break started"); }}
+                  disabled={locating}
+                  onClick={() => setLocationAction("break_start")}
                 >
                   <Coffee /> Start break
                 </Button>
                 <Button
                   variant="brand"
                   size="xl"
-                  onClick={async () => {
-                    if (!open) return;
-                    const f = await getFix();
-                    act(() => supabase.from("attendance").update({ clock_out: new Date().toISOString(), out_lat: f?.lat ?? null, out_lng: f?.lng ?? null, out_accuracy: f?.accuracy ?? null }).eq("id", open.id), "Clocked out — see you tomorrow!");
-                  }}
+                  disabled={locating}
+                  onClick={() => setLocationAction("clock_out")}
                 >
                   <LogOut /> Clock out
                 </Button>
@@ -135,7 +161,8 @@ function MyDay() {
               <Button
                 variant="brand"
                 size="xl"
-                onClick={() => { if (openBreak) act(() => supabase.from("breaks").update({ end_at: new Date().toISOString() }).eq("id", openBreak.id), "Welcome back"); }}
+                disabled={locating}
+                onClick={() => setLocationAction("break_end")}
               >
                 <Play /> End break
               </Button>
@@ -196,6 +223,13 @@ function MyDay() {
           </ul>
         )}
       </section>
+      <Dialog open={locationAction !== null} onOpenChange={(value) => { if (!value && !locating) setLocationAction(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{locationAction ? locationActionLabel[locationAction] : "Attendance"}</DialogTitle><DialogDescription>Share your current device location with your attendance record. Your team lead and organization admins can review it.</DialogDescription></DialogHeader>
+          <Button variant="brand" disabled={locating} onClick={() => captureAction(true)}><MapPin /> {locating ? "Saving attendance…" : "Share location & continue"}</Button>
+          <Button variant="outline" disabled={locating} onClick={() => captureAction(false)}>Continue without location</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
