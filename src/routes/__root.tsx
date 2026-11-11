@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import { MobileInstallBanner } from "@/components/MobileInstallBanner";
 
 function NotFoundComponent() {
   return (
@@ -119,9 +120,17 @@ function RootComponent() {
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
 
+  // Register the service worker so the app is installable (and Android can offer "Install").
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => { /* ignore */ });
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <MobileInstallBanner />
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );
