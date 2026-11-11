@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import xoBot from "@/assets/xo-bot.png.asset.json";
+import xoBot from "@/assets/xo-bot.png";
 
 // Eye centers as fractions of the mascot image (measured from the artwork).
 const EYES = [
@@ -47,7 +47,7 @@ export function XoBot({ className = "" }: { className?: string }) {
 
   return (
     <div ref={ref} className={`relative select-none ${className}`}>
-      <img src={xoBot.url} alt="XO, the Xoto bot" className="block h-auto w-full" draggable={false} />
+      <img src={xoBot} alt="XO, the Xoto bot" className="block h-auto w-full" draggable={false} />
       {EYES.map((eye, i) => (
         <div
           key={i}

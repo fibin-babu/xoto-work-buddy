@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/PasswordInput";
-import logo from "@/assets/xoto-logo.png.asset.json";
+import logo from "@/assets/xoto-logo.png";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
@@ -72,7 +72,7 @@ function ResetPasswordPage() {
       <div className="pointer-events-none absolute -left-40 -top-40 h-[34rem] w-[34rem] rounded-full bg-brand-gradient opacity-25 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-48 right-0 h-[30rem] w-[30rem] rounded-full bg-brand-gradient opacity-20 blur-3xl" />
       <form onSubmit={submit} className="relative w-full max-w-md space-y-6 rounded-3xl bg-card p-8 text-card-foreground shadow-brand sm:p-10">
-        <img src={logo.url} alt="Xoto" className="-ml-3 h-20 w-auto" />
+        <img src={logo} alt="Xoto" className="-ml-3 h-20 w-auto" />
         <div>
           <h2 className="font-display text-3xl font-bold">Choose a new password</h2>
           <p className="mt-2 text-sm text-muted-foreground">

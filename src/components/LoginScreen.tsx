@@ -11,7 +11,7 @@ import { PasswordInput } from "@/components/PasswordInput";
 import { adminExists, bootstrapAdmin } from "@/lib/admin.functions";
 import { isCompanyEmail } from "@/lib/time";
 import { XoBot } from "@/components/XoBot";
-import logo from "@/assets/xoto-logo.png.asset.json";
+import logo from "@/assets/xoto-logo.png";
 
 export function LoginScreen() {
   const navigate = useNavigate();
@@ -108,7 +108,7 @@ export function LoginScreen() {
         <XoBot className="xo-mobile-float pointer-events-none w-24 shrink-0 lg:hidden" />
         {forgot ? (
         <form onSubmit={sendReset} className="w-full max-w-md space-y-6 rounded-3xl bg-card p-8 text-card-foreground shadow-brand sm:p-10">
-          <img src={logo.url} alt="Xoto" className="-ml-3 h-20 w-auto" />
+          <img src={logo} alt="Xoto" className="-ml-3 h-20 w-auto" />
           <div>
             <h2 className="font-display text-3xl font-bold">Reset your password</h2>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -128,7 +128,7 @@ export function LoginScreen() {
         </form>
         ) : (
         <form onSubmit={submit} className="w-full max-w-md space-y-6 rounded-3xl bg-card p-8 text-card-foreground shadow-brand sm:p-10">
-          <img src={logo.url} alt="Xoto" className="-ml-3 h-20 w-auto" />
+          <img src={logo} alt="Xoto" className="-ml-3 h-20 w-auto" />
           <div>
             <h2 className="font-display text-3xl font-bold">{needsSetup ? "Set up the first admin" : "Welcome back"}</h2>
             <p className="mt-2 text-sm text-muted-foreground">

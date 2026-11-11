@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import xoHead from "@/assets/xo-head.png.asset.json";
+import xoHead from "@/assets/xo-head.png";
 
 // Eye centers as fractions of the cropped head image (measured from the artwork).
 const EYES = [
@@ -95,7 +95,7 @@ export function XoBotPeek() {
       aria-hidden="true"
     >
       <img
-        src={xoHead.url}
+        src={xoHead}
         alt=""
         className="block h-auto w-full drop-shadow-lg"
         draggable={false}

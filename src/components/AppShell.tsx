@@ -4,7 +4,7 @@ import { KeyRound, LayoutDashboard, LogOut, Sun, Users, UserCog } from "lucide-r
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/use-me";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/xoto-logo.png.asset.json";
+import logo from "@/assets/xoto-logo.png";
 import { InstallButton } from "./InstallButton";
 import { XoBotPeek } from "./XoBotPeek";
 import { ShiftReminder } from "./ShiftReminder";
@@ -33,7 +33,7 @@ export function AppShell() {
       <header className="sticky top-0 z-30 border-b bg-card/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4">
           <Link to="/dashboard" className="flex items-center">
-            <img src={logo.url} alt="Xoto" className="h-14 w-auto" />
+            <img src={logo} alt="Xoto" className="h-14 w-auto" />
           </Link>
           <nav className="flex flex-1 gap-1 overflow-x-auto">
             {links
