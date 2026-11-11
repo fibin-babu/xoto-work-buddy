@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Coffee, LogIn, LogOut, MapPin, Play, Trash2 } from "lucide-react";
+import { Coffee, LogIn, LogOut, Play, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/use-me";
 import { breakMinutes, fmtDuration, fmtTime, todayStr, workedMinutes } from "@/lib/time";
@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { AttachmentLink } from "@/components/AttachmentLink";
 import { TaskTimer } from "@/components/TaskTimer";
 import { cn } from "@/lib/utils";
+import { useServerFn } from "@tanstack/react-start";
 import { getFix } from "@/lib/geo";
-import { attendanceColumns, locationActionLabel, type LocationAction } from "@/lib/location-review";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { attendanceColumns, type LocationAction } from "@/lib/location-review";
+import { clockIn, clockOut, startBreak, endBreak } from "@/lib/attendance.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "My Day — Xoto Workday" }, { name: "description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:title", content: "My Day — Xoto Workday" }, { property: "og:description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
@@ -34,9 +35,12 @@ function MyDay() {
   const now = useNow();
   const date = todayStr();
   const uid = me?.id;
-  const [locationAction, setLocationAction] = useState<LocationAction | null>(null);
   const [locating, setLocating] = useState(false);
   const actionLock = useRef(false);
+  const doClockIn = useServerFn(clockIn);
+  const doClockOut = useServerFn(clockOut);
+  const doStartBreak = useServerFn(startBreak);
+  const doEndBreak = useServerFn(endBreak);
 
   const day = useQuery({
     queryKey: ["myday", uid, date],
@@ -71,23 +75,21 @@ function MyDay() {
 
   const state = !open ? "out" : openBreak ? "break" : "in";
 
-  async function captureAction(share: boolean) {
-    if (!uid || !locationAction || actionLock.current) return;
+  async function captureAction(action: LocationAction) {
+    if (!uid || actionLock.current) return;
     actionLock.current = true;
     setLocating(true);
     try {
-      const fix = share ? await getFix() : null;
+      // Capture location quietly in the background; if it's denied or unavailable we save without it.
+      const fix = await getFix();
       const lat = fix?.lat ?? null, lng = fix?.lng ?? null, accuracy = fix?.accuracy ?? null;
-      const action = locationAction;
-      let result;
-      if (action === "clock_in" && !open) result = await supabase.from("attendance").insert({ user_id: uid, work_date: date, in_lat: lat, in_lng: lng, in_accuracy: accuracy });
-      else if (action === "break_start" && open && !openBreak) result = await supabase.from("breaks").insert({ user_id: uid, attendance_id: open.id, start_lat: lat, start_lng: lng, start_accuracy: accuracy });
-      else if (action === "break_end" && openBreak) result = await supabase.from("breaks").update({ end_at: new Date().toISOString(), end_lat: lat, end_lng: lng, end_accuracy: accuracy }).eq("id", openBreak.id).is("end_at", null);
-      else if (action === "clock_out" && open && !openBreak) result = await supabase.from("attendance").update({ clock_out: new Date().toISOString(), out_lat: lat, out_lng: lng, out_accuracy: accuracy }).eq("id", open.id).is("clock_out", null);
+      // Writes go through server functions so the IP is captured server-side.
+      if (action === "clock_in" && !open) await doClockIn({ data: { work_date: date, lat, lng, accuracy } });
+      else if (action === "break_start" && open && !openBreak) await doStartBreak({ data: { attendance_id: open.id, lat, lng, accuracy } });
+      else if (action === "break_end" && openBreak) await doEndBreak({ data: { break_id: openBreak.id, lat, lng, accuracy } });
+      else if (action === "clock_out" && open && !openBreak) await doClockOut({ data: { attendance_id: open.id, lat, lng, accuracy } });
       else throw new Error("Your attendance changed. Please refresh and try again.");
-      if (result.error) throw result.error;
       await Promise.all([refresh(), qc.invalidateQueries({ queryKey: ["myday-open"] }), qc.invalidateQueries({ queryKey: ["report"] })]);
-      setLocationAction(null);
       toast.success(action === "clock_in" ? "Clocked in" : action === "clock_out" ? "Clocked out — see you tomorrow!" : action === "break_start" ? "Break started" : "Welcome back");
     } catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't save attendance"); }
     finally { setLocating(false); actionLock.current = false; }
@@ -132,7 +134,7 @@ function MyDay() {
                 variant="brand"
                 size="xl"
                 disabled={day.isLoading || locating}
-                onClick={() => setLocationAction("clock_in")}
+                onClick={() => captureAction("clock_in")}
               >
                 <LogIn /> Clock in
               </Button>
@@ -143,7 +145,7 @@ function MyDay() {
                   variant="secondary"
                   size="xl"
                   disabled={locating}
-                  onClick={() => setLocationAction("break_start")}
+                  onClick={() => captureAction("break_start")}
                 >
                   <Coffee /> Start break
                 </Button>
@@ -151,7 +153,7 @@ function MyDay() {
                   variant="brand"
                   size="xl"
                   disabled={locating}
-                  onClick={() => setLocationAction("clock_out")}
+                  onClick={() => captureAction("clock_out")}
                 >
                   <LogOut /> Clock out
                 </Button>
@@ -162,7 +164,7 @@ function MyDay() {
                 variant="brand"
                 size="xl"
                 disabled={locating}
-                onClick={() => setLocationAction("break_end")}
+                onClick={() => captureAction("break_end")}
               >
                 <Play /> End break
               </Button>
@@ -223,13 +225,6 @@ function MyDay() {
           </ul>
         )}
       </section>
-      <Dialog open={locationAction !== null} onOpenChange={(value) => { if (!value && !locating) setLocationAction(null); }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{locationAction ? locationActionLabel[locationAction] : "Attendance"}</DialogTitle><DialogDescription>Share your current device location with your attendance record. Your team lead and organization admins can review it.</DialogDescription></DialogHeader>
-          <Button variant="brand" disabled={locating} onClick={() => captureAction(true)}><MapPin /> {locating ? "Saving attendance…" : "Share location & continue"}</Button>
-          <Button variant="outline" disabled={locating} onClick={() => captureAction(false)}>Continue without location</Button>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

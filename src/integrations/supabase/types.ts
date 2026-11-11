@@ -21,11 +21,13 @@ export type Database = {
           created_at: string
           id: string
           in_accuracy: number | null
+          in_ip: string | null
           in_lat: number | null
           in_lng: number | null
           in_location_name: string | null
           in_onsite: boolean | null
           out_accuracy: number | null
+          out_ip: string | null
           out_lat: number | null
           out_lng: number | null
           out_location_name: string | null
@@ -39,11 +41,13 @@ export type Database = {
           created_at?: string
           id?: string
           in_accuracy?: number | null
+          in_ip?: string | null
           in_lat?: number | null
           in_lng?: number | null
           in_location_name?: string | null
           in_onsite?: boolean | null
           out_accuracy?: number | null
+          out_ip?: string | null
           out_lat?: number | null
           out_lng?: number | null
           out_location_name?: string | null
@@ -57,11 +61,13 @@ export type Database = {
           created_at?: string
           id?: string
           in_accuracy?: number | null
+          in_ip?: string | null
           in_lat?: number | null
           in_lng?: number | null
           in_location_name?: string | null
           in_onsite?: boolean | null
           out_accuracy?: number | null
+          out_ip?: string | null
           out_lat?: number | null
           out_lng?: number | null
           out_location_name?: string | null
@@ -83,11 +89,13 @@ export type Database = {
         Row: {
           attendance_id: string
           end_accuracy: number | null
+          end_ip: string | null
           end_at: string | null
           end_lat: number | null
           end_lng: number | null
           id: string
           start_accuracy: number | null
+          start_ip: string | null
           start_at: string
           start_lat: number | null
           start_lng: number | null
@@ -96,11 +104,13 @@ export type Database = {
         Insert: {
           attendance_id: string
           end_accuracy?: number | null
+          end_ip?: string | null
           end_at?: string | null
           end_lat?: number | null
           end_lng?: number | null
           id?: string
           start_accuracy?: number | null
+          start_ip?: string | null
           start_at?: string
           start_lat?: number | null
           start_lng?: number | null
@@ -109,11 +119,13 @@ export type Database = {
         Update: {
           attendance_id?: string
           end_accuracy?: number | null
+          end_ip?: string | null
           end_at?: string | null
           end_lat?: number | null
           end_lng?: number | null
           id?: string
           start_accuracy?: number | null
+          start_ip?: string | null
           start_at?: string
           start_lat?: number | null
           start_lng?: number | null
@@ -139,6 +151,7 @@ export type Database = {
       location_events: {
         Row: {
           accuracy: number | null
+          ip: string | null
           action: string
           attendance_id: string
           break_id: string | null
@@ -157,6 +170,7 @@ export type Database = {
         }
         Insert: {
           accuracy?: number | null
+          ip?: string | null
           action: string
           attendance_id: string
           break_id?: string | null
@@ -175,6 +189,7 @@ export type Database = {
         }
         Update: {
           accuracy?: number | null
+          ip?: string | null
           action?: string
           attendance_id?: string
           break_id?: string | null
@@ -218,29 +233,35 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          deleted_at: string | null
           email: string
           full_name: string
           id: string
           shift_end: string | null
           shift_start: string | null
+          suspended_at: string | null
           team_id: string | null
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           email: string
           full_name?: string
           id: string
           shift_end?: string | null
           shift_start?: string | null
+          suspended_at?: string | null
           team_id?: string | null
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           email?: string
           full_name?: string
           id?: string
           shift_end?: string | null
           shift_start?: string | null
+          suspended_at?: string | null
           team_id?: string | null
         }
         Relationships: [
@@ -409,6 +430,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_active_user: { Args: { _user_id: string }; Returns: boolean }
+      my_account_status: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

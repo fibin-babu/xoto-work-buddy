@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Download } from "lucide-react";
+import { ChevronDown, Download, MapPin } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { breakMinutes, fmtDuration, fmtTime, todayStr, workedMinutes } from "@/lib/time";
 import { Input } from "@/components/ui/input";
@@ -9,8 +10,9 @@ import { AttachmentLink } from "@/components/AttachmentLink";
 import { isLateClockIn } from "@/lib/shift";
 import { cn } from "@/lib/utils";
 import { ReportCharts } from "@/components/ReportCharts";
-import { attendanceColumns, locationActionLabel } from "@/lib/location-review";
+import { attendanceColumns, locationActionLabel, reviewFlags, reviewFlagLabel, usualIp } from "@/lib/location-review";
 import { LocationMap } from "@/components/LocationMap";
+import { usePlaceName } from "@/lib/place-name";
 
 type Props = { title: string; subtitle?: string; teamFilter?: boolean; excludeUserId?: string; managerId?: string; charts?: boolean };
 
@@ -24,7 +26,8 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
     queryKey: ["report", from, to],
     queryFn: async () => {
       const [p, t, a, b, k, locations] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, email, team_id, shift_start").order("full_name"),
+        // select("*") so this still works before the suspend/delete migration adds suspended_at/deleted_at.
+        supabase.from("profiles").select("*").order("full_name"),
         supabase.from("teams").select("id, name, manager_id"),
         supabase.from("attendance").select(attendanceColumns).gte("work_date", from).lte("work_date", to),
         supabase.from("breaks").select("*, attendance!inner(work_date)").gte("attendance.work_date", from).lte("attendance.work_date", to),
@@ -45,6 +48,8 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
       .filter((p) => !mine || (p.team_id != null && mine.has(p.team_id)))
       .filter((p) => p.id !== excludeUserId)
       .filter((p) => team === "all" || p.team_id === team)
+      // Suspended and deleted people only appear when they have history in the chosen dates.
+      .filter((p) => (!p.suspended_at && !p.deleted_at) || q.data.att.some((x) => x.user_id === p.id) || q.data.tasks.some((x) => x.user_id === p.id))
       .map((p) => {
         const att = q.data.att.filter((x) => x.user_id === p.id).sort((x, y) => x.clock_in.localeCompare(y.clock_in));
         const brk = q.data.breaks.filter((x) => x.user_id === p.id);
@@ -171,7 +176,7 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
               <Fragment key={r.id}>
                 <tr className="cursor-pointer border-b last:border-0 hover:bg-muted/40" onClick={() => setOpenRow(openRow === r.id ? null : r.id)}>
                   <td className="px-4 py-3">
-                    <p className="font-semibold">{r.full_name || r.email}</p>
+                    <p className="font-semibold">{r.full_name || r.email}{(r.deleted_at || r.suspended_at) && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{r.deleted_at ? "Deleted" : "Suspended"}</span>}</p>
                     <p className="text-xs text-muted-foreground">{r.email}</p>
                   </td>
                   <td className="px-4 py-3">{r.team}</td>
@@ -193,13 +198,10 @@ export function WorkReport({ title, subtitle, teamFilter, excludeUserId, manager
                 {openRow === r.id && (
                   <tr className="border-b bg-muted/30">
                     <td colSpan={9} className="px-6 py-4">
-                      <h3 className="mb-2 font-semibold">Location activity</h3>
-                      {!r.locations.length && <p className="mb-4 text-sm text-muted-foreground">No location checks recorded in this period.</p>}
-                      <ul className="mb-5 divide-y">{r.locations.map((event) => <li key={event.id} className="py-3 text-sm">
-                        <div className="flex flex-wrap items-center gap-2"><span className="font-medium">{locationActionLabel[event.action as keyof typeof locationActionLabel] ?? event.action}</span><span className="text-muted-foreground">{event.work_date} · {fmtTime(event.captured_at)}</span><SiteMark v={event.review_status} /></div>
-                        <p className="mt-1 text-xs text-muted-foreground">Assigned: {event.expected_name ?? "No location"}{event.distance_m !== null ? ` · ${Math.round(event.distance_m)} m away · allowed ${event.radius_m} m` : ""}{event.accuracy !== null ? ` · GPS accuracy ±${Math.round(event.accuracy)} m` : ""}</p>
-                        {event.lat !== null && event.lng !== null && <details className="mt-2"><summary className="cursor-pointer text-primary">{event.lat.toFixed(5)}, {event.lng.toFixed(5)} · View map</summary><div className="mt-2 max-w-lg"><LocationMap lat={event.lat} lng={event.lng} title={`${r.full_name} ${event.action}`} /></div></details>}
-                      </li>)}</ul>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="font-semibold">Tasks</h3>
+                        <LocationActivity locations={r.locations} name={r.full_name || r.email} />
+                      </div>
                       {r.tasks.length === 0 ? (
                         <p className="text-muted-foreground">No tasks logged in this period.</p>
                       ) : (
@@ -242,4 +244,58 @@ function Metric({ label, value, hint, accent }: { label: string; value: string; 
 function SiteMark({ v }: { v: string | undefined }) {
   if (!v) return null;
   return <span className={cn("ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold", v === "mismatch" ? "bg-destructive/15 text-destructive" : v === "match" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground")}>{v === "match" ? "Match" : v === "mismatch" ? "Mismatch" : v === "unavailable" ? "Unavailable" : "Unassigned"}</span>;
+}
+
+/** Summary line for a location check: the English place name (resolved from coordinates), with coords as a fallback. */
+function PlaceSummary({ lat, lng }: { lat: number; lng: number }) {
+  const place = usePlaceName(lat, lng);
+  const label = place.status === "loading" ? "Finding place name…" : place.name ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  return <>{label} · View map</>;
+}
+
+type LocationEvent = {
+  id: string;
+  action: string;
+  work_date: string;
+  captured_at: string;
+  review_status: string;
+  expected_name: string | null;
+  distance_m: number | null;
+  radius_m: number | null;
+  accuracy: number | null;
+  ip: string | null;
+  lat: number | null;
+  lng: number | null;
+};
+
+/** Location checks for one person, tucked behind a button so the expanded row leads with tasks. */
+function LocationActivity({ locations, name }: { locations: LocationEvent[]; name: string }) {
+  const usual = usualIp(locations);
+  const toReview = locations.filter((event) => reviewFlags(event, usual).length > 0).length;
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <MapPin /> Location activity
+          <span className="ml-1 rounded-full bg-muted px-1.5 text-xs">{locations.length}</span>
+          {toReview > 0 && <span className="ml-1 rounded-full bg-destructive/15 px-1.5 text-xs font-semibold text-destructive">{toReview} to review</span>}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Location activity</DialogTitle>
+          <DialogDescription>Clock-in, break and clock-out checks for {name}. Entries are flagged when the signals don't agree.</DialogDescription>
+        </DialogHeader>
+        {!locations.length && <p className="text-sm text-muted-foreground">No location checks recorded in this period.</p>}
+        <ul className="divide-y">{locations.map((event) => {
+          const flags = reviewFlags(event, usual);
+          return <li key={event.id} className="py-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2"><span className="font-medium">{locationActionLabel[event.action as keyof typeof locationActionLabel] ?? event.action}</span><span className="text-muted-foreground">{event.work_date} · {fmtTime(event.captured_at)}</span><SiteMark v={event.review_status} />{flags.map((f) => <span key={f} className="rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-semibold text-destructive">{reviewFlagLabel[f]}</span>)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Assigned: {event.expected_name ?? "No location"}{event.distance_m !== null ? ` · ${Math.round(event.distance_m)} m away · allowed ${event.radius_m} m` : ""}{event.accuracy !== null ? ` · GPS accuracy ±${Math.round(event.accuracy)} m` : ""}{event.ip ? ` · IP ${event.ip}` : ""}</p>
+            {event.lat !== null && event.lng !== null && <details className="mt-2"><summary className="cursor-pointer text-primary"><PlaceSummary lat={event.lat} lng={event.lng} /></summary><div className="mt-2"><LocationMap lat={event.lat} lng={event.lng} title={`${name} ${event.action}`} /></div></details>}
+          </li>;
+        })}</ul>
+      </DialogContent>
+    </Dialog>
+  );
 }
