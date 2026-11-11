@@ -12,6 +12,7 @@ import { adminExists, bootstrapAdmin } from "@/lib/admin.functions";
 import { isCompanyEmail } from "@/lib/time";
 import { XoBot } from "@/components/XoBot";
 import logo from "@/assets/xoto-logo.png";
+import { friendlySignInError } from "@/lib/account-status";
 
 export function LoginScreen() {
   const navigate = useNavigate();
@@ -66,7 +67,7 @@ export function LoginScreen() {
       if (error) throw error;
       navigate({ to: "/dashboard", replace: true });
     } catch (err: any) {
-      toast.error(err?.message ?? "Sign in failed");
+      toast.error(friendlySignInError(err?.message));
     } finally {
       setBusy(false);
     }

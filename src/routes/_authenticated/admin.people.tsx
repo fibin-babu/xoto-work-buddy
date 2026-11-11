@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin } from "lucide-react";
 import { getFix } from "@/lib/geo";
 import { PersonLocationPicker } from "@/components/PersonLocationPicker";
+import { PersonAccessActions } from "@/components/PersonAccessActions";
 
 export const Route = createFileRoute("/_authenticated/admin/people")({
   head: () => ({ meta: [{ title: "Configuration — Xoto Workday" }, { name: "description", content: "Configure employee accounts, shifts, personal work locations, and teams." }, { property: "og:title", content: "Configuration — Xoto Workday" }, { property: "og:description", content: "Configure employee accounts, shifts, personal work locations, and teams." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
@@ -43,7 +44,8 @@ function PeoplePage() {
         supabase.from("work_locations").select("*").order("name"),
         supabase.from("user_locations").select("*"),
       ]);
-      return { people: p.data ?? [], teams: t.data ?? [], roles: r.data ?? [], locs: l.data ?? [], userLocs: ul.data ?? [] };
+      const everyone = p.data ?? [];
+      return { people: everyone.filter((x) => !x.deleted_at), deleted: everyone.filter((x) => x.deleted_at), teams: t.data ?? [], roles: r.data ?? [], locs: l.data ?? [], userLocs: ul.data ?? [] };
     },
   });
   const refresh = () => qc.invalidateQueries();
@@ -207,7 +209,7 @@ function PeoplePage() {
       </div>
 
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-semibold">Everyone ({q.data?.people.length ?? 0})</h2>
+        <h2 className="text-xl font-semibold">Everyone ({q.data?.people.length ?? 0}){!!q.data?.people.some((p) => p.suspended_at) && <span className="ml-2 text-sm font-normal text-muted-foreground">· {q.data.people.filter((p) => p.suspended_at).length} suspended</span>}</h2>
         <Input placeholder="Search name or email" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
       </div>
       <div className="overflow-x-auto rounded-3xl border bg-card shadow-card">
@@ -217,8 +219,8 @@ function PeoplePage() {
           </thead>
           <tbody>
             {q.data?.people.filter((p) => `${p.full_name} ${p.email}`.toLowerCase().includes(search.toLowerCase())).map((p) => (
-              <tr key={p.id} className="border-b last:border-0">
-                <td className="px-4 py-3"><p className="font-semibold">{p.full_name}</p><p className="text-xs text-muted-foreground">{p.email}</p></td>
+              <tr key={p.id} className={"border-b last:border-0" + (p.suspended_at ? " bg-muted/40" : "")}>
+                <td className="px-4 py-3"><p className="font-semibold">{p.full_name}{p.suspended_at && <span className="ml-2 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">Suspended</span>}</p><p className="text-xs text-muted-foreground">{p.email}</p></td>
                 <td className="px-4 py-3">
                   <select className={sel + " w-32"} value={roleOf(p.id)} onChange={async (e) => {
                     try { await update({ data: { user_id: p.id, role: e.target.value as Role, team_id: p.team_id } }); refresh(); } catch (err: any) { toast.error(err.message); }
@@ -253,18 +255,36 @@ function PeoplePage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
+                  <div className="flex justify-end gap-2">
                   <Button variant="outline" size="sm" onClick={async () => {
                     const pw = prompt(`New password for ${p.email} (min 8 characters)`);
                     if (!pw) return;
                     if (pw.length < 8) { toast.error("Password must be at least 8 characters"); return; }
                     try { await reset({ data: { user_id: p.id, password: pw } }); toast.success("Password updated"); } catch (err: any) { toast.error(err.message); }
                   }}>Reset password</Button>
+                  <PersonAccessActions person={p} isSelf={p.id === me?.id} onChanged={refresh} />
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {!!q.data?.deleted.length && (
+        <details className="rounded-3xl border bg-card p-6 shadow-card">
+          <summary className="cursor-pointer text-xl font-semibold">Deleted people ({q.data.deleted.length})</summary>
+          <p className="mt-2 text-sm text-muted-foreground">Their login accounts are gone. Their attendance, tasks and location history are kept in reports.</p>
+          <ul className="mt-3 divide-y text-sm">
+            {q.data.deleted.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-4 py-2">
+                <span><span className="font-medium">{p.full_name || p.email}</span> <span className="text-muted-foreground">· {p.email}</span></span>
+                <span className="text-xs text-muted-foreground">Deleted {new Date(p.deleted_at!).toLocaleDateString()}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }
