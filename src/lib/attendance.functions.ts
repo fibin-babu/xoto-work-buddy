@@ -34,6 +34,9 @@ export const clockIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => coord.extend({ work_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(d))
   .handler(async ({ data, context }) => {
+    // Idempotent: if already clocked in today, do nothing (prevents duplicate overlapping sessions).
+    const { data: openRows } = await context.supabase.from("attendance").select("id").eq("user_id", context.userId).eq("work_date", data.work_date).is("clock_out", null).limit(1);
+    if (openRows && openRows.length > 0) return { ok: true };
     const base = { user_id: context.userId, work_date: data.work_date, in_lat: data.lat, in_lng: data.lng, in_accuracy: data.accuracy };
     let { error } = await context.supabase.from("attendance").insert({ ...base, in_ip: clientIp() });
     if (error && missingIpColumn(error)) ({ error } = await context.supabase.from("attendance").insert(base));
@@ -57,6 +60,9 @@ export const startBreak = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => coord.extend({ attendance_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    // Idempotent: if a break is already open for this attendance, do nothing.
+    const { data: openBreaks } = await context.supabase.from("breaks").select("id").eq("attendance_id", data.attendance_id).eq("user_id", context.userId).is("end_at", null).limit(1);
+    if (openBreaks && openBreaks.length > 0) return { ok: true };
     const base = { user_id: context.userId, attendance_id: data.attendance_id, start_lat: data.lat, start_lng: data.lng, start_accuracy: data.accuracy };
     let { error } = await context.supabase.from("breaks").insert({ ...base, start_ip: clientIp() });
     if (error && missingIpColumn(error)) ({ error } = await context.supabase.from("breaks").insert(base));

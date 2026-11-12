@@ -4,9 +4,30 @@ export type Brk = { start_at: string; end_at: string | null };
 const mins = (a: string, b: string | null, now: Date) =>
   Math.max(0, ((b ? new Date(b) : now).getTime() - new Date(a).getTime()) / 60000);
 
-/** Total worked minutes = clock-in to clock-out. Breaks are NOT deducted (audit only). */
+/**
+ * Total worked minutes = the union of clock-in→clock-out spans. Overlapping sessions
+ * (e.g. an accidental double clock-in) are merged so the same time is never counted twice.
+ * Breaks are NOT deducted (audit only).
+ */
 export function workedMinutes(sessions: Session[], now = new Date()) {
-  return sessions.reduce((s, x) => s + mins(x.clock_in, x.clock_out, now), 0);
+  const spans = sessions
+    .map((x) => [new Date(x.clock_in).getTime(), (x.clock_out ? new Date(x.clock_out) : now).getTime()] as const)
+    .filter(([a, b]) => b > a)
+    .sort((p, q) => p[0] - q[0]);
+  let total = 0;
+  let start = -Infinity;
+  let end = -Infinity;
+  for (const [a, b] of spans) {
+    if (a > end) {
+      if (end > start) total += end - start;
+      start = a;
+      end = b;
+    } else if (b > end) {
+      end = b;
+    }
+  }
+  if (end > start) total += end - start;
+  return total / 60000;
 }
 
 export function breakMinutes(breaks: Brk[], now = new Date()) {
