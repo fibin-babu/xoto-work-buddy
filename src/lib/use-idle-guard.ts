@@ -29,6 +29,7 @@ export function useIdleGuard({ uid, openId, shiftEnd, clockOutAt }: Params): { s
   const [stop, setStop] = useState<{ n: number; capAtMs: number | null }>({ n: 0, capAtMs: null });
   const lastActivity = useRef(Date.now());
   const remindedRef = useRef<string | null>(null);
+  const reminderToast = useRef<string | number | null>(null);
   const prevOpen = useRef<string | undefined>(openId);
 
   // Track genuine interaction.
@@ -65,7 +66,7 @@ export function useIdleGuard({ uid, openId, shiftEnd, clockOutAt }: Params): { s
       if (remindedRef.current === dayKey || localStorage.getItem(dayKey)) { remindedRef.current = dayKey; return; }
       remindedRef.current = dayKey;
       try { localStorage.setItem(dayKey, "1"); } catch { /* ignore */ }
-      toast.warning("No activity since your shift ended — your timers are paused. Clock out?", { duration: 30_000 });
+      reminderToast.current = toast.warning("No activity since your shift ended — your timers are paused. Clock out?", { duration: 30_000 });
       setStop((prev) => ({ n: prev.n + 1, capAtMs: null })); // pause running timers now
     };
     check();
@@ -77,6 +78,8 @@ export function useIdleGuard({ uid, openId, shiftEnd, clockOutAt }: Params): { s
   useEffect(() => {
     if (prevOpen.current && !openId) {
       setStop((prev) => ({ n: prev.n + 1, capAtMs: clockOutAt ? new Date(clockOutAt).getTime() : Date.now() }));
+      // Clear any lingering clock-out reminder — they've clocked out, so stop nagging.
+      if (reminderToast.current !== null) { toast.dismiss(reminderToast.current); reminderToast.current = null; }
     }
     prevOpen.current = openId;
   }, [openId, clockOutAt]);

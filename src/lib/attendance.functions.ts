@@ -49,7 +49,10 @@ export const clockOut = createServerFn({ method: "POST" })
   .inputValidator((d) => coord.extend({ attendance_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const base = { clock_out: new Date().toISOString(), out_lat: data.lat, out_lng: data.lng, out_accuracy: data.accuracy };
-    const where = (q: ReturnType<typeof context.supabase.from>) => q.eq("id", data.attendance_id).eq("user_id", context.userId).is("clock_out", null);
+    // Close EVERY open session for this user, not just the one id — a person can only be in one
+    // session at a time, so this sweeps up any accidental duplicate open rows and prevents the app
+    // from staying "clocked in" (and nagging with clock-out reminders) after a clock-out.
+    const where = (q: ReturnType<typeof context.supabase.from>) => q.eq("user_id", context.userId).is("clock_out", null);
     let { error } = await where(context.supabase.from("attendance").update({ ...base, out_ip: clientIp() }));
     if (error && missingIpColumn(error)) ({ error } = await where(context.supabase.from("attendance").update(base)));
     if (error) throw new Error(error.message);

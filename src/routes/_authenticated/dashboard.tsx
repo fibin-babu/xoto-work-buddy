@@ -11,7 +11,7 @@ import { AttachmentLink } from "@/components/AttachmentLink";
 import { TaskTimer } from "@/components/TaskTimer";
 import { cn } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
-import { getFix } from "@/lib/geo";
+import { captureLocation } from "@/lib/location-capture";
 import { attendanceColumns, type LocationAction } from "@/lib/location-review";
 import { clockIn, clockOut, startBreak, endBreak } from "@/lib/attendance.functions";
 import { useIdleGuard } from "@/lib/use-idle-guard";
@@ -85,17 +85,17 @@ function MyDay() {
     actionLock.current = true;
     setLocating(true);
     try {
-      // Capture location quietly in the background; if it's denied or unavailable we save without it.
-      const fix = await getFix();
-      const lat = fix?.lat ?? null, lng = fix?.lng ?? null, accuracy = fix?.accuracy ?? null;
-      // Writes go through server functions so the IP is captured server-side.
-      if (action === "clock_in" && !open) await doClockIn({ data: { work_date: date, lat, lng, accuracy } });
-      else if (action === "break_start" && open && !openBreak) await doStartBreak({ data: { attendance_id: open.id, lat, lng, accuracy } });
-      else if (action === "break_end" && openBreak) await doEndBreak({ data: { break_id: openBreak.id, lat, lng, accuracy } });
-      else if (action === "clock_out" && open && !openBreak) await doClockOut({ data: { attendance_id: open.id, lat, lng, accuracy } });
+      // Record the attendance change immediately — the button never waits on GPS. The IP is
+      // captured server-side here; the device location is attached quietly afterwards (see below).
+      if (action === "clock_in" && !open) await doClockIn({ data: { work_date: date, lat: null, lng: null, accuracy: null } });
+      else if (action === "break_start" && open && !openBreak) await doStartBreak({ data: { attendance_id: open.id, lat: null, lng: null, accuracy: null } });
+      else if (action === "break_end" && openBreak) await doEndBreak({ data: { break_id: openBreak.id, lat: null, lng: null, accuracy: null } });
+      else if (action === "clock_out" && open && !openBreak) await doClockOut({ data: { attendance_id: open.id, lat: null, lng: null, accuracy: null } });
       else throw new Error("Your attendance changed. Please refresh and try again.");
       await Promise.all([refresh(), qc.invalidateQueries({ queryKey: ["myday-open"] }), qc.invalidateQueries({ queryKey: ["report"] })]);
       toast.success(action === "clock_in" ? "Clocked in" : action === "clock_out" ? "Clocked out — see you tomorrow!" : action === "break_start" ? "Break started" : "Welcome back");
+      // Attach the device location in the background, then refresh so the location view updates.
+      void captureLocation(action, uid, date).then((attached) => { if (attached) refresh(); });
     } catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't save attendance"); }
     finally { setLocating(false); actionLock.current = false; }
   }
