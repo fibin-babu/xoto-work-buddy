@@ -9,24 +9,59 @@ export type GetFixOptions = {
   settleMs?: number;
 };
 
+export type GeoPermission = "granted" | "denied" | "prompt" | "unknown";
+
+/** Current geolocation permission, via the Permissions API. "unknown" when it isn't supported (e.g. older Safari). */
+export async function geoPermission(): Promise<GeoPermission> {
+  try {
+    const perms = (navigator as Navigator & { permissions?: { query: (d: { name: PermissionName }) => Promise<{ state: GeoPermission }> } }).permissions;
+    if (perms?.query) {
+      const res = await perms.query({ name: "geolocation" as PermissionName });
+      return res.state;
+    }
+  } catch {
+    /* fall through */
+  }
+  return "unknown";
+}
+
+/** Ask for location permission once, deliberately (from a user tap). Resolves to the resulting permission. */
+export function requestGeoPermission(): Promise<GeoPermission> {
+  return new Promise((resolve) => {
+    const geo = typeof navigator !== "undefined" ? navigator.geolocation : undefined;
+    if (!geo) return resolve("unknown");
+    geo.getCurrentPosition(
+      () => resolve("granted"),
+      (err) => resolve(err.code === err.PERMISSION_DENIED ? "denied" : "prompt"),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  });
+}
+
 /**
- * Best-effort device location. The first reading a device returns is usually a
- * coarse Wi-Fi/cell estimate; GPS sharpens over the next few seconds. So we watch
- * briefly and keep the most accurate reading:
- *   - stop at once if a reading is accurate enough (good GPS), else
- *   - stop a short moment after the first reading (so a laptop with no GPS, which
- *     only ever gives one coarse reading, doesn't keep the UI waiting), and
- *   - give up at the hard cap if nothing arrives.
- * Resolves null if denied, unsupported, or no reading arrives — clocking never blocks.
+ * Best-effort device location. Crucially, this NEVER triggers a permission popup on its own:
+ * it reads a position only when permission is already granted (so clocking in/out never
+ * interrupts the user with a prompt, and never collides with a screen overlay). Permission is
+ * asked for once, deliberately, via requestGeoPermission(). Resolves null if not granted,
+ * unsupported, or no reading arrives in time — clocking never blocks.
+ *
+ * It watches briefly and keeps the most accurate reading: stops at once on a good GPS fix,
+ * a short moment after the first coarse reading otherwise, or at the hard cap.
  */
-export function getFix(options: GetFixOptions = {}): Promise<Fix> {
+export async function getFix(options: GetFixOptions = {}): Promise<Fix> {
   const timeoutMs = options.timeoutMs ?? 8000;
   const desiredAccuracyM = options.desiredAccuracyM ?? 30;
   const settleMs = options.settleMs ?? 2500;
-  return new Promise((resolve) => {
-    const geo = typeof navigator !== "undefined" ? navigator.geolocation : undefined;
-    if (!geo) return resolve(null);
 
+  const geo = typeof navigator !== "undefined" ? navigator.geolocation : undefined;
+  if (!geo) return null;
+
+  // Only read a position when permission is already granted. "unknown" (no Permissions API,
+  // e.g. iOS Safari) falls back to attempting a read, which the OS handles cleanly there.
+  const permission = await geoPermission();
+  if (permission === "denied" || permission === "prompt") return null;
+
+  return new Promise((resolve) => {
     let best: Fix = null;
     let settled = false;
     let watchId: number | undefined;
@@ -51,15 +86,10 @@ export function getFix(options: GetFixOptions = {}): Promise<Fix> {
         if (typeof c.latitude !== "number" || typeof c.longitude !== "number") return;
         const accuracy = typeof c.accuracy === "number" ? c.accuracy : Number.POSITIVE_INFINITY;
         if (!best || accuracy < best.accuracy) best = { lat: c.latitude, lng: c.longitude, accuracy };
-        if (best.accuracy <= desiredAccuracyM) { finish(); return; } // accurate enough — stop now
-        // Got a coarse reading: wait only a short moment for it to sharpen, then settle.
+        if (best.accuracy <= desiredAccuracyM) { finish(); return; }
         if (settleTimer === undefined) settleTimer = setTimeout(finish, settleMs);
       },
-      () => {
-        // Permission denied or position unavailable. Keep any reading we already have;
-        // otherwise give up so the action isn't blocked.
-        if (!best) finish();
-      },
+      () => { if (!best) finish(); },
       { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
     );
   });

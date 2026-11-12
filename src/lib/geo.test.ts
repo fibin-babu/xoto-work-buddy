@@ -4,14 +4,18 @@ import { getFix } from "./geo";
 type Success = (p: { coords: { latitude: number; longitude: number; accuracy: number } }) => void;
 type Failure = (e: { code: number; message: string }) => void;
 
-function mockGeolocation(script: (success: Success, failure: Failure) => void) {
+type Permission = "granted" | "denied" | "prompt";
+
+function mockGeolocation(script: (success: Success, failure: Failure) => void, permission?: Permission) {
   const clearWatch = vi.fn();
   const watchPosition = vi.fn((success: Success, failure: Failure) => {
     script(success, failure);
     return 1;
   });
-  // @ts-expect-error minimal geolocation stub for tests
-  globalThis.navigator = { geolocation: { watchPosition, clearWatch, getCurrentPosition: vi.fn() } };
+  const nav: Record<string, unknown> = { geolocation: { watchPosition, clearWatch, getCurrentPosition: vi.fn() } };
+  if (permission) nav["permissions"] = { query: () => Promise.resolve({ state: permission }) };
+  // @ts-expect-error minimal navigator stub for tests
+  globalThis.navigator = nav;
   return { clearWatch, watchPosition };
 }
 
@@ -64,6 +68,23 @@ describe("getFix", () => {
   it("resolves null when permission is denied before any reading", async () => {
     mockGeolocation((_success, failure) => failure({ code: 1, message: "denied" }));
     expect(await getFix()).toBeNull();
+  });
+
+  it("never reads a position (no popup) when permission is still 'prompt'", async () => {
+    const { watchPosition } = mockGeolocation((success) => success(coord(25.2, 55.3, 10)), "prompt");
+    expect(await getFix()).toBeNull();
+    expect(watchPosition).not.toHaveBeenCalled();
+  });
+
+  it("does not read a position when permission is denied", async () => {
+    const { watchPosition } = mockGeolocation((success) => success(coord(25.2, 55.3, 10)), "denied");
+    expect(await getFix()).toBeNull();
+    expect(watchPosition).not.toHaveBeenCalled();
+  });
+
+  it("reads silently when permission is already granted", async () => {
+    mockGeolocation((success) => success(coord(25.2, 55.3, 12)), "granted");
+    expect(await getFix()).toEqual({ lat: 25.2, lng: 55.3, accuracy: 12 });
   });
 
   it("resolves null when geolocation is unavailable", async () => {

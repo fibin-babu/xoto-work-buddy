@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin } from "lucide-react";
-import { getFix } from "@/lib/geo";
+import { getFix, geoPermission, requestGeoPermission } from "@/lib/geo";
 import { PersonLocationPicker } from "@/components/PersonLocationPicker";
 import { PersonAccessActions } from "@/components/PersonAccessActions";
 
@@ -81,8 +81,10 @@ function PeoplePage() {
   }
 
   async function useMyLocation() {
+    // Deliberate admin action, so it's fine to ask for permission here if not yet granted.
+    if ((await geoPermission()) !== "granted") await requestGeoPermission();
     const f = await getFix();
-    if (!f) { toast.error("Couldn't get your location"); return; }
+    if (!f) { toast.error("Couldn't get your location. Allow location access and try again."); return; }
     setLoc((l) => ({ ...l, lat: f.lat.toFixed(6), lng: f.lng.toFixed(6) }));
   }
 
