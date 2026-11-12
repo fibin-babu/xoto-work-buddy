@@ -23,7 +23,7 @@ const LiveClock = memo(function LiveClock({ task, className }: { task: TimedTask
   return <span className={cn("tabular-nums", className)}>{fmtClock(elapsedMs(task, task.startedAt === null ? 0 : now))}</span>;
 });
 
-export function TaskTimer({ uid, date, onSaved }: { uid: string | undefined; date: string; onSaved: () => void }) {
+export function TaskTimer({ uid, date, onSaved, stopSignal = 0, capAtMs = null }: { uid: string | undefined; date: string; onSaved: () => void; stopSignal?: number; capAtMs?: number | null }) {
   const [mode, setMode] = useState<"timer" | "log">("timer");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -57,6 +57,18 @@ export function TaskTimer({ uid, date, onSaved }: { uid: string | undefined; dat
   }, [key]);
 
   useEffect(() => () => { pipRef.current?.close(); }, []);
+
+  // Pause all running timers when asked (idle past shift, or a clock-out). capAtMs caps the
+  // elapsed time at the clock-out moment so idle/after-hours time isn't counted.
+  const lastStop = useRef(0);
+  useEffect(() => {
+    if (!stopSignal || stopSignal === lastStop.current || !ready || !key) return;
+    lastStop.current = stopSignal;
+    if (!tasksRef.current.some((t) => t.startedAt !== null)) return;
+    const at = capAtMs ?? Date.now();
+    try { commit(tasksRef.current.map((t) => (t.startedAt !== null ? pauseTask(t, at) : t))); }
+    catch { /* storage unavailable */ }
+  }, [stopSignal, capAtMs, ready, key]);
 
   function commit(next: TimedTask[]) {
     if (!key) throw new Error("Please sign in first");

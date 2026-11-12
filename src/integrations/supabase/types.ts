@@ -28,6 +28,8 @@ export type Database = {
           in_onsite: boolean | null
           out_accuracy: number | null
           out_ip: string | null
+          last_seen_at: string | null
+          auto_closed: boolean
           out_lat: number | null
           out_lng: number | null
           out_location_name: string | null
@@ -48,6 +50,8 @@ export type Database = {
           in_onsite?: boolean | null
           out_accuracy?: number | null
           out_ip?: string | null
+          last_seen_at?: string | null
+          auto_closed?: boolean
           out_lat?: number | null
           out_lng?: number | null
           out_location_name?: string | null
@@ -68,6 +72,8 @@ export type Database = {
           in_onsite?: boolean | null
           out_accuracy?: number | null
           out_ip?: string | null
+          last_seen_at?: string | null
+          auto_closed?: boolean
           out_lat?: number | null
           out_lng?: number | null
           out_location_name?: string | null

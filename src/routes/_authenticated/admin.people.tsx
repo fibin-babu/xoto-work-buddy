@@ -91,6 +91,7 @@ function PeoplePage() {
     if (error) toast.error(error.message); else refresh();
   }
 
+
   async function saveLocation(user_id: string, location_id: string) {
     if (savingLocation) return;
     setSavingLocation(user_id);

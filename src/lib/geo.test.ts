@@ -51,6 +51,16 @@ describe("getFix", () => {
     expect(await p).toEqual({ lat: 25.15, lng: 55.25, accuracy: 80 });
   });
 
+  it("settles shortly after a coarse reading instead of waiting the full timeout", async () => {
+    vi.useFakeTimers();
+    mockGeolocation((success) => {
+      success(coord(25.1, 55.2, 150)); // one coarse reading (e.g. a laptop on Wi-Fi), never improves
+    });
+    const p = getFix({ timeoutMs: 8000, desiredAccuracyM: 30, settleMs: 2500 });
+    await vi.advanceTimersByTimeAsync(2500); // settles here, well before the 8s cap
+    expect(await p).toEqual({ lat: 25.1, lng: 55.2, accuracy: 150 });
+  });
+
   it("resolves null when permission is denied before any reading", async () => {
     mockGeolocation((_success, failure) => failure({ code: 1, message: "denied" }));
     expect(await getFix()).toBeNull();

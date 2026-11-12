@@ -14,6 +14,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getFix } from "@/lib/geo";
 import { attendanceColumns, type LocationAction } from "@/lib/location-review";
 import { clockIn, clockOut, startBreak, endBreak } from "@/lib/attendance.functions";
+import { useIdleGuard } from "@/lib/use-idle-guard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "My Day — Xoto Workday" }, { name: "description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:title", content: "My Day — Xoto Workday" }, { property: "og:description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
@@ -45,6 +46,7 @@ function MyDay() {
   const day = useQuery({
     queryKey: ["myday", uid, date],
     enabled: !!uid,
+    refetchInterval: 60_000, // pick up an automatic clock-out even while this tab sits idle
     queryFn: async () => {
       if (!uid) return { att: [], breaks: [], tasks: [] };
       const [att, brk, tasks] = await Promise.all([
@@ -62,6 +64,8 @@ function MyDay() {
   const tasks = day.data?.tasks ?? [];
   const open = att.find((a) => !a.clock_out);
   const openBreak = breaks.find((b) => !b.end_at);
+  const lastClockOut = att.filter((a) => a.clock_out).map((a) => a.clock_out).sort().at(-1) ?? null;
+  const idleGuard = useIdleGuard({ uid, openId: open?.id, shiftEnd: me?.profile?.shift_end, clockOutAt: lastClockOut });
   const worked = workedMinutes(att, now);
   const brkMins = breakMinutes(breaks, now);
   const loggedHours = tasks.reduce((s, t) => s + Number(t.hours), 0);
@@ -188,7 +192,7 @@ function MyDay() {
             <p className="max-w-xs text-sm text-muted-foreground">Start your day with the Clock in button, then time or log your tasks here.</p>
           </div>
         ) : (
-          <TaskTimer uid={uid} date={date} onSaved={refresh} />
+          <TaskTimer uid={uid} date={date} onSaved={refresh} stopSignal={idleGuard.stopSignal} capAtMs={idleGuard.capAtMs} />
         )}
       </section>
 

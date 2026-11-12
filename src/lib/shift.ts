@@ -1,3 +1,5 @@
+import { orgMinutesOfDay } from "@/lib/org-time";
+
 /** Minutes after shift end when the second ("still clocked in") reminder fires. */
 export const LATE_REMINDER_MIN = 30;
 
@@ -11,7 +13,7 @@ function parseTime(t: string) {
 /** Which clock-out reminder is due right now (local time), or null. */
 export function dueReminder(shiftEnd: string | null | undefined, now: Date, clockedIn: boolean): ReminderKind | null {
   if (!shiftEnd || !clockedIn) return null;
-  const cur = now.getHours() * 60 + now.getMinutes();
+  const cur = orgMinutesOfDay(now);
   const end = parseTime(shiftEnd);
   if (cur >= end + LATE_REMINDER_MIN) return "late";
   if (cur >= end) return "end";
@@ -30,11 +32,11 @@ export const LATE_GRACE_MIN = 15;
 export function isLateClockIn(shiftStart: string | null | undefined, clockIn: Date | string | null | undefined): boolean {
   if (!shiftStart || !clockIn) return false;
   const d = typeof clockIn === "string" ? new Date(clockIn) : clockIn;
-  return d.getHours() * 60 + d.getMinutes() > parseTime(shiftStart) + LATE_GRACE_MIN;
+  return orgMinutesOfDay(d) > parseTime(shiftStart) + LATE_GRACE_MIN;
 }
 
 /** Clock-in reminder is due once shift start has passed and the person hasn't clocked in today. */
 export function dueClockInReminder(shiftStart: string | null | undefined, now: Date, clockedInToday: boolean): boolean {
   if (!shiftStart || clockedInToday) return false;
-  return now.getHours() * 60 + now.getMinutes() >= parseTime(shiftStart);
+  return orgMinutesOfDay(now) >= parseTime(shiftStart);
 }
