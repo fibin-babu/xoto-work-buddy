@@ -8,6 +8,7 @@ import logo from "@/assets/xoto-logo.png";
 import { InstallButton } from "./InstallButton";
 import { XoBotPeek } from "./XoBotPeek";
 import { ShiftReminder } from "./ShiftReminder";
+import { MobileInstallBanner } from "./MobileInstallBanner";
 
 export function AppShell() {
   const { data: me } = useMe();
@@ -70,6 +71,7 @@ export function AppShell() {
       </main>
       <XoBotPeek />
       <ShiftReminder />
+      <MobileInstallBanner />
     </div>
   );
 }
