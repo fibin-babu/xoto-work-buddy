@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { getFix } from "@/lib/geo";
+import { getFix, geoPermission, requestGeoPermission } from "@/lib/geo";
 import type { LocationAction } from "@/lib/location-review";
 
 /**
@@ -8,8 +8,16 @@ import type { LocationAction } from "@/lib/location-review";
  * so the buttons stay instant; the IP is already recorded server-side, and the coordinates are a
  * best-effort enrichment. Does nothing if location permission isn't granted or no reading arrives.
  * Returns true when a location was attached (so the caller can refresh the view).
+ *
+ * When `requestPermission` is set (we do this on clock-in), the native location prompt is shown
+ * once if permission hasn't been decided yet — so the ask happens naturally the first time someone
+ * clocks in, rather than as a standing banner. If they've already allowed or blocked it, nothing
+ * pops up. A block just means no coordinates are saved; attendance still records fine.
  */
-export async function captureLocation(action: LocationAction, uid: string, date: string): Promise<boolean> {
+export async function captureLocation(action: LocationAction, uid: string, date: string, opts: { requestPermission?: boolean } = {}): Promise<boolean> {
+  if (opts.requestPermission) {
+    try { if ((await geoPermission()) === "prompt") await requestGeoPermission(); } catch { /* ignore */ }
+  }
   let fix: Awaited<ReturnType<typeof getFix>> = null;
   try { fix = await getFix(); } catch { return false; }
   if (!fix) return false;

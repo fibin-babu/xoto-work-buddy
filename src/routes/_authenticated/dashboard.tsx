@@ -15,7 +15,6 @@ import { captureLocation } from "@/lib/location-capture";
 import { attendanceColumns, type LocationAction } from "@/lib/location-review";
 import { clockIn, clockOut, startBreak, endBreak } from "@/lib/attendance.functions";
 import { useIdleGuard } from "@/lib/use-idle-guard";
-import { EnableLocation } from "@/components/EnableLocation";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "My Day — Xoto Workday" }, { name: "description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:title", content: "My Day — Xoto Workday" }, { property: "og:description", content: "Track your workday, switch task timers, and review completed tasks at Xoto." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
@@ -95,7 +94,9 @@ function MyDay() {
       await Promise.all([refresh(), qc.invalidateQueries({ queryKey: ["myday-open"] }), qc.invalidateQueries({ queryKey: ["report"] })]);
       toast.success(action === "clock_in" ? "Clocked in" : action === "clock_out" ? "Clocked out — see you tomorrow!" : action === "break_start" ? "Break started" : "Welcome back");
       // Attach the device location in the background, then refresh so the location view updates.
-      void captureLocation(action, uid, date).then((attached) => { if (attached) refresh(); });
+      // On clock-in we ask for location permission if it hasn't been decided yet — so the prompt
+      // appears the first time someone clocks in, not as a standing banner on the page.
+      void captureLocation(action, uid, date, { requestPermission: action === "clock_in" }).then((attached) => { if (attached) refresh(); });
     } catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't save attendance"); }
     finally { setLocating(false); actionLock.current = false; }
   }
@@ -108,8 +109,6 @@ function MyDay() {
         </p>
         <h1 className="text-3xl font-bold">Hi {me?.profile?.full_name?.split(" ")[0] || "there"} 👋</h1>
       </div>
-
-      <EnableLocation />
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         {/* Clock card */}
