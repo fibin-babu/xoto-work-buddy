@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_report_settings: {
+        Row: {
+          enabled: boolean
+          id: boolean
+          last_sent_on: string | null
+          recipient_email: string
+          send_hour: number
+          send_minute: number
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+          last_sent_on?: string | null
+          recipient_email?: string
+          send_hour?: number
+          send_minute?: number
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+          last_sent_on?: string | null
+          recipient_email?: string
+          send_hour?: number
+          send_minute?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       attendance: {
         Row: {
           clock_in: string

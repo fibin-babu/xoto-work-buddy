@@ -57,6 +57,13 @@
       "when": 1794471986396,
       "tag": "0007_idle_auto_clockout",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794730000000,
+      "tag": "0008_daily_report_email",
+      "breakpoints": true
     }
   ]
 }

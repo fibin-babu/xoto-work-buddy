@@ -323,3 +323,89 @@ BEGIN
  RETURN NEW;
 END $$;
 
+
+-- ===========================================================================
+-- Daily task report email (see drizzle/migrations/0008_daily_report_email.sql)
+-- ===========================================================================
+CREATE EXTENSION IF NOT EXISTS pg_net;
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+CREATE OR REPLACE FUNCTION public.html_escape(_t text)
+RETURNS text LANGUAGE sql IMMUTABLE AS $$
+  SELECT replace(replace(replace(replace(coalesce(_t,''),'&','&amp;'),'<','&lt;'),'>','&gt;'),'"','&quot;')
+$$;
+
+CREATE TABLE IF NOT EXISTS public.daily_report_settings (
+  id boolean PRIMARY KEY DEFAULT true CHECK (id),
+  enabled boolean NOT NULL DEFAULT false,
+  recipient_email text NOT NULL DEFAULT '',
+  send_hour smallint NOT NULL DEFAULT 21 CHECK (send_hour BETWEEN 0 AND 23),
+  send_minute smallint NOT NULL DEFAULT 0 CHECK (send_minute BETWEEN 0 AND 59),
+  last_sent_on date,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO public.daily_report_settings (id) VALUES (true) ON CONFLICT (id) DO NOTHING;
+ALTER TABLE public.daily_report_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.daily_report_settings FROM anon, authenticated;
+GRANT ALL ON public.daily_report_settings TO service_role;
+
+CREATE OR REPLACE FUNCTION public.daily_report_html(_report_date date)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE _body text;
+BEGIN
+  WITH task_rows AS (
+    SELECT p.team_id, p.id AS user_id, p.full_name, tk.title, tk.hours
+    FROM public.tasks tk JOIN public.profiles p ON p.id = tk.user_id
+    WHERE tk.work_date = _report_date AND tk.status = 'done'
+  ),
+  member_blocks AS (
+    SELECT team_id, full_name,
+      '<p style="margin:12px 0 2px;font-weight:600;color:#111;">' || public.html_escape(full_name) || '</p>'
+      || '<ul style="margin:0 0 10px;padding-left:20px;color:#333;line-height:1.5;">'
+      || string_agg('<li>' || public.html_escape(title)
+           || CASE WHEN hours > 0 THEN ' <span style="color:#999;">(' || trim(to_char(hours,'FM990.##')) || 'h)</span>' ELSE '' END
+           || '</li>', '' ORDER BY title)
+      || '</ul>' AS block
+    FROM task_rows GROUP BY team_id, full_name
+  ),
+  team_blocks AS (
+    SELECT coalesce(t.name,'No team') AS team_name, string_agg(mb.block,'' ORDER BY mb.full_name) AS blocks
+    FROM member_blocks mb LEFT JOIN public.teams t ON t.id = mb.team_id
+    GROUP BY coalesce(t.name,'No team')
+  )
+  SELECT string_agg('<h2 style="font-size:15px;margin:22px 0 4px;color:#0a8f5b;border-bottom:1px solid #eee;padding-bottom:4px;">'
+    || public.html_escape(team_name) || '</h2>' || blocks, '' ORDER BY team_name) INTO _body FROM team_blocks;
+  IF _body IS NULL THEN _body := '<p style="padding:14px 0;color:#888;">No tasks were logged on this day.</p>'; END IF;
+  RETURN '<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111;">'
+    || '<p style="font-size:20px;font-weight:700;margin:0 0 2px;"><span style="color:#0a8f5b;">Xoto</span> Workday</p>'
+    || '<p style="margin:0 0 8px;color:#666;font-size:13px;">Completed tasks — ' || to_char(_report_date,'FMDay, DD FMMonth YYYY') || '</p>'
+    || _body || '<p style="margin:24px 0 0;color:#aaa;font-size:11px;">Sent automatically by Xoto Workday.</p></div>';
+END $$;
+
+CREATE OR REPLACE FUNCTION public.send_daily_task_report()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE s public.daily_report_settings%rowtype; _now_gst timestamp; _gst_date date; _api_key text; _from text; _to jsonb;
+BEGIN
+  SELECT * INTO s FROM public.daily_report_settings WHERE id;
+  IF NOT FOUND OR NOT s.enabled OR coalesce(s.recipient_email,'') = '' THEN RETURN; END IF;
+  _now_gst := (now() AT TIME ZONE 'Asia/Dubai'); _gst_date := _now_gst::date;
+  IF extract(dow FROM _now_gst) = 0 THEN RETURN; END IF;
+  IF s.last_sent_on IS NOT NULL AND s.last_sent_on >= _gst_date THEN RETURN; END IF;
+  IF (extract(hour FROM _now_gst)*60 + extract(minute FROM _now_gst)) < (s.send_hour*60 + s.send_minute) THEN RETURN; END IF;
+  SELECT decrypted_secret INTO _api_key FROM vault.decrypted_secrets WHERE name = 'resend_api_key';
+  IF _api_key IS NULL THEN RETURN; END IF;
+  SELECT decrypted_secret INTO _from FROM vault.decrypted_secrets WHERE name = 'daily_report_from';
+  _from := coalesce(_from, 'Xoto Workday <onboarding@resend.dev>');
+  SELECT jsonb_agg(trim(x)) INTO _to FROM unnest(string_to_array(s.recipient_email, ',')) x WHERE trim(x) <> '';
+  IF _to IS NULL THEN RETURN; END IF;
+  PERFORM net.http_post(
+    url := 'https://api.resend.com/emails',
+    headers := jsonb_build_object('Authorization','Bearer ' || _api_key, 'Content-Type','application/json'),
+    body := jsonb_build_object('from', _from, 'to', _to,
+      'subject', 'Xoto — Completed tasks ' || to_char(_gst_date,'Dy, DD Mon YYYY'),
+      'html', public.daily_report_html(_gst_date)));
+  UPDATE public.daily_report_settings SET last_sent_on = _gst_date WHERE id;
+END $$;
+
+DO $$ BEGIN PERFORM cron.unschedule('daily-task-report'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+SELECT cron.schedule('daily-task-report', '*/10 * * * *', $$ SELECT public.send_daily_task_report(); $$);
