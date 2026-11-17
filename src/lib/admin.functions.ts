@@ -17,7 +17,7 @@ function needsMigration(error: any): boolean {
   const m = `${error?.message ?? ""} ${error?.code ?? ""} ${error?.details ?? ""}`;
   return /suspended_at|deleted_at|is_active_user|my_account_status|does not exist|schema cache|42703|42883|PGRST202|PGRST204/i.test(m);
 }
-const MIGRATION_MSG = "Suspend and delete need the latest database update. Push your changes so Lovable can apply it, then try again.";
+const MIGRATION_MSG = "Suspend and delete need the latest database update. Apply the latest SQL migration to Supabase (SQL Editor), then try again.";
 
 async function assertAdmin(supabase: any, userId: string) {
   const [{ data: admin }, active] = await Promise.all([

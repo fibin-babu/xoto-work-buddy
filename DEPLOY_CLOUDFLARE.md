@@ -1,10 +1,11 @@
 # Hosting on Cloudflare Workers
 
 This app builds to a Cloudflare **Worker** (server-rendered, not a static site).
+Production is the Worker `app`, served at **https://app.xotobuddy.workers.dev**.
 `npm run build` produces `.output/`, and `npx wrangler deploy` ships it using the
 generated `.output/server/wrangler.json`.
 
-It talks to the **same Supabase database** as your Lovable site, so data is shared.
+It reads and writes the Supabase database configured in the environment variables below.
 
 ---
 
@@ -50,14 +51,15 @@ Re-run `npm run build && npx wrangler deploy` whenever you change the code.
 | `SUPABASE_URL` | runtime (secret) | login, attendance |
 | `SUPABASE_PUBLISHABLE_KEY` | runtime (secret) | login, attendance |
 | `SUPABASE_SERVICE_ROLE_KEY` | runtime (secret) | admin: create / suspend / delete users |
-| `LOVABLE_CRON_SECRET` | runtime (secret) | only if you use the cron endpoint |
-| `GOOGLE_MAPS_API_KEY`, `LOVABLE_API_KEY` | runtime (secret) | only for Maps place-name search (pasting a link works without) |
+| `GOOGLE_MAPS_API_KEY` | runtime (secret) | only for Maps place-name search (pasting a link works without) |
 
-Get the values from Lovable (Project → Supabase/Settings). The **service role key**
-is in Supabase → Project → **API → `service_role`** — treat it like a password.
+Get the values from Supabase → **Project Settings → API**. The **service role key**
+(`service_role`) bypasses row-level security — treat it like a password.
 
 ## Notes
-- Your first URL will be `https://tanstack-start-ts.<your-account>.workers.dev`.
-  Rename the Worker or add a custom domain in the Cloudflare dashboard.
-- Database migrations still run through **Lovable**, not Cloudflare. This host only
-  serves the app; it reads/writes the same Supabase database.
+- `npm run deploy` publishes to the Worker named `app` (→ `app.xotobuddy.workers.dev`).
+  Add a custom domain in the Cloudflare dashboard if needed.
+- Database migrations are **not** run by the deploy. Apply new SQL from
+  `drizzle/migrations` / the root `*.sql` files in Supabase → **SQL Editor** first.
+- `LOVABLE_CRON_SECRET` and `LOVABLE_API_KEY` are no longer used; you can delete
+  them from the Worker's secrets.

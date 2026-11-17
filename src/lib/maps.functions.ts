@@ -9,20 +9,16 @@ export const searchWorkPlaces = createServerFn({ method: "POST" })
     const { data: admin, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (error || !admin) throw new Error("Only organization admins can configure locations");
     const key = process.env["GOOGLE_MAPS_API_KEY"];
-    const auth = process.env["LOVABLE_API_KEY"];
     if (!key) throw new Error("Google Maps is not connected: set GOOGLE_MAPS_API_KEY");
-    const fieldMask = "places.id,places.displayName,places.formattedAddress,places.location";
-    // On Lovable, go through its connector gateway; elsewhere call Google directly with our own key.
-    const response = await fetch(
-      auth ? "https://connector-gateway.lovable.dev/google_maps/places/v1/places:searchText" : "https://places.googleapis.com/v1/places:searchText",
-      {
-        method: "POST",
-        headers: auth
-          ? { Authorization: `Bearer ${auth}`, "X-Connection-Api-Key": key, "Content-Type": "application/json", "X-Goog-FieldMask": fieldMask }
-          : { "X-Goog-Api-Key": key, "Content-Type": "application/json", "X-Goog-FieldMask": fieldMask },
-        body: JSON.stringify({ textQuery: data.query, pageSize: 5 }),
+    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "X-Goog-Api-Key": key,
+        "Content-Type": "application/json",
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location",
       },
-    );
+      body: JSON.stringify({ textQuery: data.query, pageSize: 5 }),
+    });
     if (!response.ok) {
       const body = await response.text();
       console.error(`Google Maps [${response.status}]: ${body}`);
@@ -36,7 +32,7 @@ export const searchWorkPlaces = createServerFn({ method: "POST" })
     return (result.places ?? []).flatMap((p) => p.location ? [{ id: p.id, name: p.displayName?.text ?? p.formattedAddress ?? "Location", address: p.formattedAddress ?? "", lat: p.location.latitude, lng: p.location.longitude }] : []);
   });
 
-/** Whether place search can run (it needs our own or Lovable's Google key). Exposes only a boolean. */
+/** Whether place search can run (it needs a Google Maps server key). Exposes only a boolean. */
 export const mapsSearchAvailable = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => ({ available: Boolean(process.env["GOOGLE_MAPS_API_KEY"]) }));
