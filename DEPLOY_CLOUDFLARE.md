@@ -9,16 +9,19 @@ It reads and writes the Supabase database configured in the environment variable
 
 ---
 
-## Option A — Deploy from GitHub (recommended, auto-deploys on push)
+## How production deploys (current setup)
 
-1. Go to **dash.cloudflare.com → Workers & Pages → Create → Workers → Import a repository**.
-2. Pick **`fibin-babu/xoto-work-buddy`** and the `main` branch.
-3. Build settings:
-   - **Build command:** `npm run build`
-   - **Deploy command:** `npx wrangler deploy`
-4. Add the environment variables (see the list below) under the project's
-   **Settings → Variables and Secrets**. Mark the keys as **Secret**.
-5. Deploy. Every push to `main` then redeploys automatically.
+The production Worker `app` is connected to this GitHub repo with Cloudflare
+**Workers Builds** (Worker `app` → Settings → Build):
+
+- **Branch:** `main` — every push to `main` builds and goes live automatically.
+- **Build command:** `bun run build`
+- **Deploy command:** `npx wrangler deploy --name app` (the `--name app` is required;
+  without it Wrangler uses the generated name and deploys a separate Worker).
+- **Build variables:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`.
+
+Do work on a branch and merge to `main` only when it is ready to go live.
+Build logs are under Worker `app` → **Deployments**.
 
 ## Option B — Deploy from your computer (one-off)
 
