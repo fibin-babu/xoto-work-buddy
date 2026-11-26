@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { KeyRound, LayoutDashboard, LogOut, Sun, Users, UserCog } from "lucide-react";
+import { FileText, KeyRound, LayoutDashboard, LogOut, Sun, Users, UserCog } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/use-me";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ export function AppShell() {
 
   const links = [
     { to: "/dashboard", label: "My Day", icon: Sun, show: true },
+    { to: "/reports", label: "Reports", icon: FileText, show: true },
     { to: "/team", label: "My Team", icon: Users, show: me?.role === "manager" || !!me?.leadsTeam },
     { to: "/admin", label: "Organization", icon: LayoutDashboard, show: me?.role === "admin" },
     { to: "/admin/people", label: "Configuration", icon: UserCog, show: me?.role === "admin" },
